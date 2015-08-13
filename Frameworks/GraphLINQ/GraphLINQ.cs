@@ -246,7 +246,7 @@ namespace Microsoft.Research.Naiad.Frameworks.GraphLINQ
         /// graph edges and nodes in a more compact representation.</remarks>
         /// <seealso cref="RenameEdges{TIdentifier}"/>
         /// <seealso cref="RenameNodes{TIdentifier}"/>
-        public static Stream<NodeWithValue<TIdentifier>, SourceEpoch> GenerateDenseNameMapping<TIdentifier>(this Stream<TIdentifier, SourceEpoch> identifiers)
+        public static Stream<NodeWithValue<TIdentifier>, Epoch> GenerateDenseNameMapping<TIdentifier>(this Stream<TIdentifier, Epoch> identifiers)
         {
             if (identifiers == null) throw new ArgumentNullException("identifiers");
             return identifiers.NewUnaryStage((i, v) => new Densifier<TIdentifier>(i, v), x => x.GetHashCode(), x => x.value.GetHashCode(), "GenerateDenseNameMapping");
@@ -266,7 +266,7 @@ namespace Microsoft.Research.Naiad.Frameworks.GraphLINQ
         /// </remarks>
         /// <seealso cref="GenerateDenseNameMapping{TIdentifier}"/>
         /// <seealso cref="RenameNodes{TIdentifier}"/>
-        public static Stream<Edge, SourceEpoch> RenameEdges<TIdentifier>(this Stream<Pair<TIdentifier, TIdentifier>, SourceEpoch> edges, Stream<NodeWithValue<TIdentifier>, SourceEpoch> renameMapping)
+        public static Stream<Edge, Epoch> RenameEdges<TIdentifier>(this Stream<Pair<TIdentifier, TIdentifier>, Epoch> edges, Stream<NodeWithValue<TIdentifier>, Epoch> renameMapping)
         {
             if (edges == null) throw new ArgumentNullException("edges");
             if (renameMapping == null) throw new ArgumentNullException("renameMapping");
@@ -289,7 +289,7 @@ namespace Microsoft.Research.Naiad.Frameworks.GraphLINQ
         /// </remarks>
         /// <seealso cref="GenerateDenseNameMapping{TIdentifier}"/>
         /// <seealso cref="RenameEdges{TIdentifier}"/>
-        public static Stream<Node, SourceEpoch> RenameNodes<TIdentifier>(this Stream<TIdentifier, SourceEpoch> nodes, Stream<NodeWithValue<TIdentifier>, SourceEpoch> renameMapping)
+        public static Stream<Node, Epoch> RenameNodes<TIdentifier>(this Stream<TIdentifier, Epoch> nodes, Stream<NodeWithValue<TIdentifier>, Epoch> renameMapping)
         {
             if (nodes == null) throw new ArgumentNullException("nodes");
             if (renameMapping == null) throw new ArgumentNullException("renameMapping");
@@ -306,7 +306,7 @@ namespace Microsoft.Research.Naiad.Frameworks.GraphLINQ
         /// <param name="renameMapping">A mapping from <typeparamref name="TIdentifier"/> values to <see cref="Node"/> objects.</param>
         /// <param name="identifierSelector">Function from input record to identifier, which associates an input record with a node.</param>
         /// <returns>A stream of nodes each associated with its respective input record.</returns>
-        public static Stream<NodeWithValue<TInput>, SourceEpoch> RenameUsing<TInput, TIdentifier>(this Stream<TInput, SourceEpoch> stream, Stream<NodeWithValue<TIdentifier>, SourceEpoch> renameMapping, Func<TInput, TIdentifier> identifierSelector)
+        public static Stream<NodeWithValue<TInput>, Epoch> RenameUsing<TInput, TIdentifier>(this Stream<TInput, Epoch> stream, Stream<NodeWithValue<TIdentifier>, Epoch> renameMapping, Func<TInput, TIdentifier> identifierSelector)
         {
             if (stream == null) throw new ArgumentNullException("stream");
             if (renameMapping == null) throw new ArgumentNullException("renameMapping");
@@ -323,7 +323,7 @@ namespace Microsoft.Research.Naiad.Frameworks.GraphLINQ
         /// <param name="renamer">The AutoRenamer</param>
         /// <param name="identifierSelector">Function from input record to identifier</param>
         /// <returns>A stream of pairs of input record and the node corresponding to the record's identifier</returns>
-        public static Stream<NodeWithValue<TInput>, IterationIn<SourceEpoch>> RenameUsing<TInput, TIdentifier>(this Stream<TInput, IterationIn<SourceEpoch>> stream, AutoRenamer<TIdentifier> renamer, Func<TInput, TIdentifier> identifierSelector)
+        public static Stream<NodeWithValue<TInput>, IterationIn<Epoch>> RenameUsing<TInput, TIdentifier>(this Stream<TInput, IterationIn<Epoch>> stream, AutoRenamer<TIdentifier> renamer, Func<TInput, TIdentifier> identifierSelector)
         {
             if (stream == null) throw new ArgumentNullException("stream");
             if (renamer == null) throw new ArgumentNullException("renamer");
@@ -340,7 +340,7 @@ namespace Microsoft.Research.Naiad.Frameworks.GraphLINQ
         /// <param name="renamer">The AutoRenamer</param>
         /// <param name="identifierSelector">Function from input record to identifier</param>
         /// <returns>A stream of pairs of input record and the node corresponding to the record's identifier</returns>
-        public static Stream<NodeWithValue<TInput>, IterationIn<SourceEpoch>> RenameUsing<TInput, TIdentifier>(this Stream<TInput, SourceEpoch> stream, AutoRenamer<TIdentifier> renamer, Func<TInput, TIdentifier> identifierSelector)
+        public static Stream<NodeWithValue<TInput>, IterationIn<Epoch>> RenameUsing<TInput, TIdentifier>(this Stream<TInput, Epoch> stream, AutoRenamer<TIdentifier> renamer, Func<TInput, TIdentifier> identifierSelector)
         {
             if (stream == null) throw new ArgumentNullException("stream");
             if (renamer == null) throw new ArgumentNullException("renamer");
@@ -359,7 +359,7 @@ namespace Microsoft.Research.Naiad.Frameworks.GraphLINQ
         /// <param name="stream">The stream of records</param>
         /// <param name="renamer">The AutoRenamer</param>
         /// <returns>The same stream of records, outside of the renaming context.</returns>
-        public static Stream<TRecord, SourceEpoch> FinishRenaming<TRecord, TIdentifier>(this Stream<TRecord, IterationIn<SourceEpoch>> stream, AutoRenamer<TIdentifier> renamer)
+        public static Stream<TRecord, Epoch> FinishRenaming<TRecord, TIdentifier>(this Stream<TRecord, IterationIn<Epoch>> stream, AutoRenamer<TIdentifier> renamer)
         {
             if (stream == null) throw new ArgumentNullException("stream");
             if (renamer == null) throw new ArgumentNullException("renamer");
@@ -1275,12 +1275,12 @@ namespace Microsoft.Research.Naiad.Frameworks.GraphLINQ
     }
 
     // turns a stream of S records into a stream of Pair<S, int>, where the integers are unique, and largely dense.
-    internal class Densifier<TRecord> : UnaryVertex<TRecord, NodeWithValue<TRecord>, SourceEpoch>
+    internal class Densifier<TRecord> : UnaryVertex<TRecord, NodeWithValue<TRecord>, Epoch>
     {
         private HashSet<TRecord> hashSet;
         private readonly int parts;
 
-        public override void OnReceive(Message<TRecord, SourceEpoch> message)
+        public override void OnReceive(Message<TRecord, Epoch> message)
         {
             var output = this.Output.GetBufferForTime(message.time);
             for (int i = 0; i < message.length; i++)
@@ -1291,12 +1291,12 @@ namespace Microsoft.Research.Naiad.Frameworks.GraphLINQ
             this.NotifyAt(message.time);
         }
 
-        public override void OnNotify(SourceEpoch time)
+        public override void OnNotify(Epoch time)
         {
             hashSet = new HashSet<TRecord>();
         }
 
-        public Densifier(int index, Stage<SourceEpoch> vertex)
+        public Densifier(int index, Stage<Epoch> vertex)
             : base(index, vertex)
         {
             this.hashSet = new HashSet<TRecord>();
@@ -1305,7 +1305,7 @@ namespace Microsoft.Research.Naiad.Frameworks.GraphLINQ
     }
 
     // joins on keys of type S to look up integer names provided as input.
-    internal class RenamerVertex<TInput, TIdentifier> : BinaryVertex<TInput, NodeWithValue<TIdentifier>, NodeWithValue<TInput>, SourceEpoch>
+    internal class RenamerVertex<TInput, TIdentifier> : BinaryVertex<TInput, NodeWithValue<TIdentifier>, NodeWithValue<TInput>, Epoch>
     {
         private Dictionary<TIdentifier, Node> rename = new Dictionary<TIdentifier, Node>();
         private Dictionary<TIdentifier, List<TInput>> delayed = new Dictionary<TIdentifier, List<TInput>>();
@@ -1320,7 +1320,7 @@ namespace Microsoft.Research.Naiad.Frameworks.GraphLINQ
         /// Callback on receipt of a batch of elements to rename.
         /// </summary>
         /// <param name="message"></param>
-        public override void OnReceive1(Message<TInput, SourceEpoch> message)
+        public override void OnReceive1(Message<TInput, Epoch> message)
         {
             var output = this.Output.GetBufferForTime(message.time);
             for (int i = 0; i < message.length; i++)
@@ -1350,7 +1350,7 @@ namespace Microsoft.Research.Naiad.Frameworks.GraphLINQ
         /// Callback on receipt of a batch of nodes with names.
         /// </summary>
         /// <param name="message">message containing nodes with names</param>
-        public override void OnReceive2(Message<NodeWithValue<TIdentifier>, SourceEpoch> message)
+        public override void OnReceive2(Message<NodeWithValue<TIdentifier>, Epoch> message)
         {
             for (int i = 0; i < message.length; i++)
             {
@@ -1374,7 +1374,7 @@ namespace Microsoft.Research.Naiad.Frameworks.GraphLINQ
         /// Should not produce new records; would be a bug.
         /// </summary>
         /// <param name="time">completed time</param>
-        public override void OnNotify(SourceEpoch time)
+        public override void OnNotify(Epoch time)
         {
             var output = this.Output.GetBufferForTime(time);
             foreach (var pair in delayed)
@@ -1388,7 +1388,7 @@ namespace Microsoft.Research.Naiad.Frameworks.GraphLINQ
             this.delayed = new Dictionary<TIdentifier, List<TInput>>();
         }
 
-        public RenamerVertex(int index, Stage<SourceEpoch> vertex, Func<TInput, TIdentifier> oldN)
+        public RenamerVertex(int index, Stage<Epoch> vertex, Func<TInput, TIdentifier> oldN)
             : base(index, vertex)
         {
             this.oldName = oldN;
@@ -1401,15 +1401,15 @@ namespace Microsoft.Research.Naiad.Frameworks.GraphLINQ
     /// <typeparam name="TIdentifier">common identifier type</typeparam>
     public class AutoRenamer<TIdentifier> : IDisposable
     {
-        private class Vertex : Vertex<IterationIn<SourceEpoch>>
+        private class Vertex : Vertex<IterationIn<Epoch>>
         {
             private Dictionary<TIdentifier, Node> renameMapping = new Dictionary<TIdentifier, Node>();
 
-            internal readonly VertexOutputBuffer<NodeWithValue<TIdentifier>, IterationIn<SourceEpoch>> RenameOutput;
+            internal readonly VertexOutputBuffer<NodeWithValue<TIdentifier>, IterationIn<Epoch>> RenameOutput;
 
-            internal void OnReceive<TInput>(Message<TInput, IterationIn<SourceEpoch>> message,
+            internal void OnReceive<TInput>(Message<TInput, IterationIn<Epoch>> message,
                                             Func<TInput, TIdentifier> nameSelector,
-                                            VertexOutputBuffer<NodeWithValue<TInput>, IterationIn<SourceEpoch>> output)
+                                            VertexOutputBuffer<NodeWithValue<TInput>, IterationIn<Epoch>> output)
             {
                 var time = message.time;
 
@@ -1429,17 +1429,17 @@ namespace Microsoft.Research.Naiad.Frameworks.GraphLINQ
                 }
             }
 
-            public override void OnNotify(IterationIn<SourceEpoch> time)
+            public override void OnNotify(IterationIn<Epoch> time)
             {
                 this.renameMapping = null;
             }
 
-            internal Vertex(int index, Stage<IterationIn<SourceEpoch>> stage)
+            internal Vertex(int index, Stage<IterationIn<Epoch>> stage)
                 : base(index, stage)
             {
-                this.RenameOutput = new VertexOutputBuffer<NodeWithValue<TIdentifier>, IterationIn<SourceEpoch>>(this);
+                this.RenameOutput = new VertexOutputBuffer<NodeWithValue<TIdentifier>, IterationIn<Epoch>>(this);
 
-                this.NotifyAt(new IterationIn<SourceEpoch>(new SourceEpoch(Int32.MaxValue), Int32.MaxValue));
+                this.NotifyAt(new IterationIn<Epoch>(new Epoch(Int32.MaxValue), Int32.MaxValue));
                 this.Entrancy = 5;
             }
         }
@@ -1447,20 +1447,20 @@ namespace Microsoft.Research.Naiad.Frameworks.GraphLINQ
         /// <summary>
         /// Context used to enter and exit the renaming scope.
         /// </summary>
-        internal LoopContext<SourceEpoch> Context;
+        internal LoopContext<Epoch> Context;
 
-        private Stage<Vertex, IterationIn<SourceEpoch>> stage;
+        private Stage<Vertex, IterationIn<Epoch>> stage;
         private readonly List<Action> connectLoopsActions = new List<Action>();
 
-        internal void InitializeContext(TimeContext<SourceEpoch> context)
+        internal void InitializeContext(TimeContext<Epoch> context)
         {
             if (this.Context == null)
             {
-                this.Context = new LoopContext<SourceEpoch>(context, "RenameContext");
+                this.Context = new LoopContext<Epoch>(context, "RenameContext");
 
                 var delay = this.Context.Delay<bool>();
 
-                this.stage = new Stage<Vertex, IterationIn<SourceEpoch>>(delay.Output.Context, (i, s) => new Vertex(i, s), "Renamer");
+                this.stage = new Stage<Vertex, IterationIn<Epoch>>(delay.Output.Context, (i, s) => new Vertex(i, s), "Renamer");
             }
         }
 
@@ -1471,21 +1471,21 @@ namespace Microsoft.Research.Naiad.Frameworks.GraphLINQ
         /// <param name="stream">source stream</param>
         /// <param name="identifierSelector">function from input to identifier</param>
         /// <returns>stream of pairs of inputs and node name of associated identifier</returns>
-        public Stream<NodeWithValue<TInput>, IterationIn<SourceEpoch>> AddRenameTask<TInput>(Stream<TInput, IterationIn<SourceEpoch>> stream, Func<TInput, TIdentifier> identifierSelector)
+        public Stream<NodeWithValue<TInput>, IterationIn<Epoch>> AddRenameTask<TInput>(Stream<TInput, IterationIn<Epoch>> stream, Func<TInput, TIdentifier> identifierSelector)
         {
             if (stream == null) throw new ArgumentNullException("stream");
             if (identifierSelector == null) throw new ArgumentNullException("identifierSelector");
             var result = this.Context.Delay<NodeWithValue<TInput>>();
 
             // shared dictionary of VertexOutputBuffers. not how things should really be structured, but ... =/
-            var dictionary = new Dictionary<Vertex, VertexOutputBuffer<NodeWithValue<TInput>, IterationIn<SourceEpoch>>>();
+            var dictionary = new Dictionary<Vertex, VertexOutputBuffer<NodeWithValue<TInput>, IterationIn<Epoch>>>();
 
             this.stage.NewInput(stream, (message, vertex) => vertex.OnReceive(message, identifierSelector, dictionary[vertex]), x => identifierSelector(x).GetHashCode());
 
             this.connectLoopsActions.Add(() => result.Input = this.stage.NewOutput(vertex =>
             {
                 if (!dictionary.ContainsKey(vertex))
-                    dictionary.Add(vertex, new VertexOutputBuffer<NodeWithValue<TInput>, IterationIn<SourceEpoch>>(vertex));
+                    dictionary.Add(vertex, new VertexOutputBuffer<NodeWithValue<TInput>, IterationIn<Epoch>>(vertex));
 
                 return dictionary[vertex];
             }, null));
@@ -1505,7 +1505,7 @@ namespace Microsoft.Research.Naiad.Frameworks.GraphLINQ
         /// <summary>
         /// A stream of renamings produced by the AutoRenamer.
         /// </summary>
-        public Stream<NodeWithValue<TIdentifier>, SourceEpoch> FinalRenamings
+        public Stream<NodeWithValue<TIdentifier>, Epoch> FinalRenamings
         {
             get
             {

@@ -1079,7 +1079,7 @@ namespace Microsoft.Research.Naiad.Frameworks.Lindi
         /// The <paramref name="action"/> parameter is used to write each record to its respective file. Often the action is 
         /// similar to <c>(record, writer) => writer.Write(record)</c>.
         /// </remarks>
-        public static void WriteToFiles<TInput>(this Stream<TInput, SourceEpoch> stream, string format, Action<TInput, System.IO.BinaryWriter> action)
+        public static void WriteToFiles<TInput>(this Stream<TInput, Epoch> stream, string format, Action<TInput, System.IO.BinaryWriter> action)
         {
             if (stream == null) throw new ArgumentNullException("stream");
             if (format == null) throw new ArgumentNullException("format");
@@ -1178,13 +1178,13 @@ namespace Microsoft.Research.Naiad.Frameworks.Lindi
         }
     }
 
-    internal class Writer<TRecord> : SinkVertex<TRecord, SourceEpoch>
+    internal class Writer<TRecord> : SinkVertex<TRecord, Epoch>
     {
-        private readonly Dictionary<SourceEpoch, System.IO.BinaryWriter> writers = new Dictionary<SourceEpoch,System.IO.BinaryWriter>();
+        private readonly Dictionary<Epoch, System.IO.BinaryWriter> writers = new Dictionary<Epoch,System.IO.BinaryWriter>();
         private readonly Action<TRecord, System.IO.BinaryWriter> action;
         private readonly string format;
 
-        public override void OnReceive(Message<TRecord, SourceEpoch> message)
+        public override void OnReceive(Message<TRecord, Epoch> message)
         {
             if (!this.writers.ContainsKey(message.time))
             {
@@ -1202,13 +1202,13 @@ namespace Microsoft.Research.Naiad.Frameworks.Lindi
                 action(message.payload[i], writer);
         }
 
-        public override void OnNotify(SourceEpoch time)
+        public override void OnNotify(Epoch time)
         {
             this.writers[time].Dispose();
             this.writers.Remove(time);
         }
 
-        public Writer(int index, Stage<SourceEpoch> stage, Action<TRecord, System.IO.BinaryWriter> action, string format)
+        public Writer(int index, Stage<Epoch> stage, Action<TRecord, System.IO.BinaryWriter> action, string format)
             : base(index, stage)
         {
             this.format = format;

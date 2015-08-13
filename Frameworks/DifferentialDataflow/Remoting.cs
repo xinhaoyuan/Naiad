@@ -39,7 +39,7 @@ namespace Microsoft.Research.Naiad.Frameworks.DifferentialDataflow
 {
     internal static class NaiadDataStreamProtocolExtensionMethods
     {
-        public static void ToReceiver<R>(this Collection<R, SourceEpoch> collection, NaiadDataStreamProtocol<Weighted<R>> receiver)
+        public static void ToReceiver<R>(this Collection<R, Epoch> collection, NaiadDataStreamProtocol<Weighted<R>> receiver)
             where R : IEquatable<R>
         {
             collection.Subscribe(xs => { receiver.StartEpoch(); foreach (Weighted<R> x in xs) receiver.Send(x); receiver.EndEpoch(); });

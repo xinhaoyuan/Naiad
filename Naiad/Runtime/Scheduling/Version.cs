@@ -27,55 +27,14 @@ using Microsoft.Research.Naiad.DataStructures;
 using Microsoft.Research.Naiad.Dataflow;
 
 namespace Microsoft.Research.Naiad.Runtime.Progress
-{ 
-    public struct StructuralTimestamp
-    {
-        public Util.SArray<int> items;
-        public StructuralTimestamp(int size)
-        {
-            items = new Util.SArray<int>(size);
-        }
-        public bool LessThan(StructuralTimestamp other)
-        {
-            if (other.items.Length != items.Length) return false;
-            for (int i = 0; i < items.Length; ++i)
-            {
-                if (items[i] > other.items[i])
-                    return false;
-            }
-            return true;
-        }
-    }
-    public struct DataTimestamp
-    {
-        public Util.SArray<KeyValuePair<int, int>> items;
-        public DataTimestamp(int size)
-        {
-            items = new Util.SArray<KeyValuePair<int, int>>(size);
-        }
-        public bool LessThan(DataTimestamp other)
-        {
-            int i, j = 0;
-            for (i = 0; i < items.Length; ++i)
-            {
-                while (items[i].Key != other.items[j].Key && j < other.items.Length)
-                    ++j;
-                // Key mismatch
-                if (j == other.items.Length) return false;
-                if (items[i].Value > other.items[j].Value) return false;
-                ++j;
-            }
-            return true;
-        }
-    }
-
+{
     internal static class PointstampConstructor
     {
         public static Pointstamp ToPointstamp<T>(this T time, int graphObjectID) where T : Time<T>
         {
-            var pointstamp = new Pointstamp(time.SourceCoordinates, time.StructuralCoordinates);
+            var pointstamp = new Pointstamp(time.DataConcurrency, time.StructuralDepth);
             pointstamp.Location = graphObjectID;
-            time.Populate(ref pointstamp.SourceCoordinates, ref pointstamp.StructuralCoordinates);
+            time.Populate(ref pointstamp.DataTimestamp, ref pointstamp.StructTimestamp);
 
             return pointstamp;
         }

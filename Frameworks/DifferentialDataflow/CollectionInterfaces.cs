@@ -112,7 +112,7 @@ namespace Microsoft.Research.Naiad.Frameworks.DifferentialDataflow
     /// <remarks>
     /// The <typeparamref name="TTime"/> type parameter is used to ensure that collections are
     /// combined in compatible ways, and need not be manipulated directly by the programmer. Initially,
-    /// <see cref="InputCollection{TRecord}"/> collections have an integer-valued <see cref="SourceEpoch"/> timestamp,
+    /// <see cref="InputCollection{TRecord}"/> collections have an integer-valued <see cref="Epoch"/> timestamp,
     /// which indicates that they vary according to a stream of input epochs. The <see cref="EnterLoop(Microsoft.Research.Naiad.Dataflow.Iteration.LoopContext{TTime})"/> method
     /// is used to refer to a collection within a loop, by augmenting its timestamp to have an <see cref="IterationIn{TTime}"/> value
     /// with an additional loop counter.
@@ -758,17 +758,17 @@ namespace Microsoft.Research.Naiad.Frameworks.DifferentialDataflow
     /// A <see cref="Microsoft.Research.Naiad.Frameworks.DifferentialDataflow.Collection{TRecord,Epoch}"/> that can be modified by adding or removing records.
     /// </summary>
     /// <typeparam name="TRecord">The type of records in this collection.</typeparam>
-    public interface InputCollection<TRecord> : Collection<TRecord, SourceEpoch>, IObserver<IEnumerable<Weighted<TRecord>>>
+    public interface InputCollection<TRecord> : Collection<TRecord, Epoch>, IObserver<IEnumerable<Weighted<TRecord>>>
         where TRecord : IEquatable<TRecord>
     {
         /// <summary>
-        /// Introduces a batch of <paramref name="values"/> to this collection in a new <see cref="SourceEpoch"/>, and signals that no more records will be added to or removed from this collection.
+        /// Introduces a batch of <paramref name="values"/> to this collection in a new <see cref="Epoch"/>, and signals that no more records will be added to or removed from this collection.
         /// </summary>
         /// <param name="values">The records to be added or removed.</param>
         void OnCompleted(IEnumerable<Weighted<TRecord>> values);
 
         /// <summary>
-        /// Introduces a batch of <paramref name="values"/> to this collection in a new <see cref="SourceEpoch"/>.
+        /// Introduces a batch of <paramref name="values"/> to this collection in a new <see cref="Epoch"/>.
         /// </summary>
         /// <param name="values">The records to be added or removed.</param>
         new void OnNext(IEnumerable<Weighted<TRecord>> values);

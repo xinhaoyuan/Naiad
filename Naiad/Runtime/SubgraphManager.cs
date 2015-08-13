@@ -95,12 +95,12 @@ namespace Microsoft.Research.Naiad
             get { return this.controller.DefaultPlacement; }
         }
 
-        public Stream<TRecord, SourceEpoch> NewInput<TRecord>(DataSource<TRecord> source)
+        public Stream<TRecord, Epoch> NewInput<TRecord>(DataSource<TRecord> source)
         {
             return this.computation.NewInput<TRecord>(source);
         }
 
-        public Stream<TRecord, SourceEpoch> NewInput<TRecord>(DataSource<TRecord> source, string name)
+        public Stream<TRecord, Epoch> NewInput<TRecord>(DataSource<TRecord> source, string name)
         {
             return this.computation.NewInput<TRecord>(source, name);
         }
@@ -143,7 +143,7 @@ namespace Microsoft.Research.Naiad
         /// <typeparam name="TRecord">record type</typeparam>
         /// <param name="source">data source</param>
         /// <returns>A new input stage</returns>
-        Stream<TRecord, SourceEpoch> NewInput<TRecord>(DataSource<TRecord> source);
+        Stream<TRecord, Epoch> NewInput<TRecord>(DataSource<TRecord> source);
 
         /// <summary>
         /// Creates a new input stage from the given <see cref="DataSource"/>.
@@ -152,7 +152,7 @@ namespace Microsoft.Research.Naiad
         /// <param name="source">data source</param>
         /// <param name="name">name for the input</param>
         /// <returns>A new input stage</returns>
-        Stream<TRecord, SourceEpoch> NewInput<TRecord>(DataSource<TRecord> source, string name);
+        Stream<TRecord, Epoch> NewInput<TRecord>(DataSource<TRecord> source, string name);
 
         /// <summary>
         /// An event that is raised each time the frontier changes.
@@ -473,14 +473,14 @@ namespace Microsoft.Research.Naiad
 
         private readonly List<DataSource> streamingInputs = new List<DataSource>();
 
-        public Stream<R, SourceEpoch> NewInput<R>(DataSource<R> source)
+        public Stream<R, Epoch> NewInput<R>(DataSource<R> source)
         {
             string generatedName = string.Format("__Input{0}", this.inputs.Count);
 
             return this.NewInput(source, generatedName);
         }
 
-        public Stream<R, SourceEpoch> NewInput<R>(DataSource<R> source, string name)
+        public Stream<R, Epoch> NewInput<R>(DataSource<R> source, string name)
         {
             Dataflow.StreamingInputStage<R> ret = new Dataflow.StreamingInputStage<R>(source, this.DefaultPlacement, this, name);
             this.inputs.Add(ret);

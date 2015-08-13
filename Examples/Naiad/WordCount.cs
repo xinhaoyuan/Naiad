@@ -39,7 +39,7 @@ namespace Microsoft.Research.Naiad.Examples.WordCount
         /// <typeparam name="TRecord">record type</typeparam>
         /// <param name="stream">input stream</param>
         /// <returns>stream of counts</returns>
-        public static Stream<Pair<TRecord, Int64>, SourceEpoch> StreamingCount<TRecord>(this Stream<TRecord, SourceEpoch> stream)
+        public static Stream<Pair<TRecord, Int64>, Epoch> StreamingCount<TRecord>(this Stream<TRecord, Epoch> stream)
         {
             return stream.NewUnaryStage((i, s) => new CountVertex<TRecord>(i, s), x => x.GetHashCode(), null, "Count");
         }
@@ -47,14 +47,14 @@ namespace Microsoft.Research.Naiad.Examples.WordCount
         /// <summary>
         /// A Naiad vertex for counting records of type S. Each epoch, changed counts are produced as output.
         /// </summary>
-        internal class CountVertex<TRecord> : UnaryVertex<TRecord, Pair<TRecord, Int64>, SourceEpoch>
+        internal class CountVertex<TRecord> : UnaryVertex<TRecord, Pair<TRecord, Int64>, Epoch>
         {
             // we maintain all the current counts, as well as recently changed keys.
             private readonly Dictionary<TRecord, Int64> Counts = new Dictionary<TRecord, long>();
             private readonly HashSet<TRecord> Changed = new HashSet<TRecord>();
 
             // Each batch of records of type TRecord we receive, we must update counts.
-            public override void OnReceive(Message<TRecord, SourceEpoch> message)
+            public override void OnReceive(Message<TRecord, Epoch> message)
             {
                 this.NotifyAt(message.time);
 
@@ -73,7 +73,7 @@ namespace Microsoft.Research.Naiad.Examples.WordCount
             }
 
             // once all records of an epoch are received, we should send the counts along.
-            public override void OnNotify(SourceEpoch time)
+            public override void OnNotify(Epoch time)
             {
                 var output = this.Output.GetBufferForTime(time);
                 foreach (var record in this.Changed)
@@ -84,7 +84,7 @@ namespace Microsoft.Research.Naiad.Examples.WordCount
             }
 
             // the UnaryVertex base class needs to know the index and stage of the vertex. 
-            public CountVertex(int index, Stage<SourceEpoch> stage) : base(index, stage) { }
+            public CountVertex(int index, Stage<Epoch> stage) : base(index, stage) { }
         }
     }
 

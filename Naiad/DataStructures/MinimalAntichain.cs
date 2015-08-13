@@ -174,15 +174,15 @@ namespace Microsoft.Research.Naiad.Runtime.Progress
 
             for (int i = 0; i < elements.Count; i++)
             {
-                if (this.Reachability.LessThan(element, elements[i]))
+                if (this.Reachability.CouldResultIn(element, elements[i]))
                     precedents[i]++;
 
-                if (this.Reachability.LessThan(elements[i], element))
+                if (this.Reachability.CouldResultIn(elements[i], element))
                     newPrecedents++;
 
-                if (this.Reachability.LessThan(element, elements[i]) && this.Reachability.LessThan(elements[i], element) && !elements[i].Equals(element))
+                if (this.Reachability.CouldResultIn(element, elements[i]) && this.Reachability.CouldResultIn(elements[i], element) && !elements[i].Equals(element))
                 {
-                    this.Reachability.LessThan(element, elements[i]);
+                    this.Reachability.CouldResultIn(element, elements[i]);
                     throw new Exception("Ordering violation " + element + "," + elements[i]);
                 }
             }
@@ -192,7 +192,7 @@ namespace Microsoft.Research.Naiad.Runtime.Progress
 
             var changes = newPrecedents == 0;
             for (int i = 0; i < Antichain.Count; i++)
-                if (this.Reachability.LessThan(element, Antichain[i]))
+                if (this.Reachability.CouldResultIn(element, Antichain[i]))
                     changes = true;
 
             if (changes)
@@ -206,7 +206,7 @@ namespace Microsoft.Research.Naiad.Runtime.Progress
             int position = elements.Count;
             for (int i = 0; i < elements.Count; i++)
             {
-                if (this.Reachability.LessThan(element, elements[i]))
+                if (this.Reachability.CouldResultIn(element, elements[i]))
                 {
                     if (position == elements.Count && element.Equals(elements[i]))
                         position = i;

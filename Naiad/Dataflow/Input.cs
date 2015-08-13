@@ -82,25 +82,25 @@ namespace Microsoft.Research.Naiad.Dataflow
 
         private bool hasActivatedProgressTracker;
 
-        private readonly Stream<TRecord, SourceEpoch> output;
-        public Stream<TRecord, SourceEpoch> Stream { get { return output; } }
+        private readonly Stream<TRecord, Epoch> output;
+        public Stream<TRecord, Epoch> Stream { get { return output; } }
 
-        public static implicit operator Stream<TRecord, SourceEpoch>(InputStage<TRecord> stage) { return stage.Stream; }
+        public static implicit operator Stream<TRecord, Epoch>(InputStage<TRecord> stage) { return stage.Stream; }
 
-        public TimeContext<SourceEpoch> Context { get { return this.stage.Context; } }
+        public TimeContext<Epoch> Context { get { return this.stage.Context; } }
         internal InternalComputation InternalComputation { get { return this.stage.InternalComputation; } }
         public Placement Placement { get { return this.stage.Placement; } }
 
         private readonly string inputName;
         public string InputName { get { return this.inputName; } }
 
-        private readonly Stage<InputVertex<TRecord>, SourceEpoch> stage;
+        private readonly Stage<InputVertex<TRecord>, Epoch> stage;
 
         internal InputStage(Placement placement, InternalComputation internalComputation, string inputName)
         {
             this.inputName = inputName;
 
-            stage = Foundry.NewStage(new TimeContext<SourceEpoch>(internalComputation.ContextManager.RootContext), (i, v) => new InputVertex<TRecord>(i, v), this.inputName);
+            stage = Foundry.NewStage(new TimeContext<Epoch>(internalComputation.ContextManager.RootContext), (i, v) => new InputVertex<TRecord>(i, v), this.inputName);
 
             this.output = stage.NewOutput(vertex => vertex.Output);
 
@@ -248,7 +248,7 @@ namespace Microsoft.Research.Naiad.Dataflow
     /// TODO this class is deprecated by virtue of StreamingInputVertex. Still used by Reporting, but that can be fixed.
     /// </summary>
     /// <typeparam name="S"></typeparam>
-    internal class InputVertex<S> : Dataflow.Vertex<SourceEpoch>
+    internal class InputVertex<S> : Dataflow.Vertex<Epoch>
     {
         private struct Instruction
         {
@@ -264,7 +264,7 @@ namespace Microsoft.Research.Naiad.Dataflow
 
         private System.Collections.Concurrent.ConcurrentQueue<Instruction> inputQueue;
 
-        internal VertexOutputBuffer<S, SourceEpoch> Output;
+        internal VertexOutputBuffer<S, Epoch> Output;
 
         private int nextAvailableEpoch;
         private int nextSendEpoch;
@@ -272,11 +272,11 @@ namespace Microsoft.Research.Naiad.Dataflow
 
         internal override void PerformAction(Scheduling.Scheduler.WorkItem workItem)
         {
-            var epoch = new SourceEpoch().InitializeFrom(workItem.Requirement, 1).epoch;
+            var epoch = new Epoch().InitializeFrom(workItem.Requirement, 1).epoch;
 
             for (int i = nextSendEpoch; i <= epoch; i++)
             {
-                var sendTime = new SourceEpoch(i);
+                var sendTime = new Epoch(i);
 
                 var output = this.Output.GetBufferForTime(sendTime);
 
@@ -307,7 +307,7 @@ namespace Microsoft.Research.Naiad.Dataflow
             lock (this)     // this is probably already under a lock, but just to be safe...
             {
                 this.inputQueue.Enqueue(new Instruction(batch, false));
-                scheduler.EnqueueNotify(this, new SourceEpoch(nextAvailableEpoch++), false);
+                scheduler.EnqueueNotify(this, new Epoch(nextAvailableEpoch++), false);
             }
         }
 
@@ -316,7 +316,7 @@ namespace Microsoft.Research.Naiad.Dataflow
             lock (this)
             {
                 this.inputQueue.Enqueue(new Instruction(null, true));
-                scheduler.EnqueueNotify(this, new SourceEpoch(nextAvailableEpoch++), false);
+                scheduler.EnqueueNotify(this, new Epoch(nextAvailableEpoch++), false);
                 nextAvailableEpoch++;
             }
         }
@@ -326,7 +326,7 @@ namespace Microsoft.Research.Naiad.Dataflow
             lock (this)     // this is probably already under a lock, but just to be safe...
             {
                 this.inputQueue.Enqueue(new Instruction(batch, true));
-                scheduler.EnqueueNotify(this, new SourceEpoch(nextAvailableEpoch++), false);
+                scheduler.EnqueueNotify(this, new Epoch(nextAvailableEpoch++), false);
             }
         }
 
@@ -375,11 +375,11 @@ namespace Microsoft.Research.Naiad.Dataflow
             }
         }
 
-        public InputVertex(int index, Stage<SourceEpoch> stage)
+        public InputVertex(int index, Stage<Epoch> stage)
             : base(index, stage)
         {
             this.inputQueue = new System.Collections.Concurrent.ConcurrentQueue<Instruction>();
-            this.Output = new VertexOutputBuffer<S, SourceEpoch>(this);
+            this.Output = new VertexOutputBuffer<S, Epoch>(this);
         }
     }
 
@@ -413,7 +413,7 @@ namespace Microsoft.Research.Naiad.Dataflow
         void OnCompleted();
     }
 
-    internal class StreamingInputVertex<S> : Dataflow.Vertex<SourceEpoch>, StreamingInput<S>
+    internal class StreamingInputVertex<S> : Dataflow.Vertex<Epoch>, StreamingInput<S>
     {
         internal int CurrentEpoch { get { return this.currentVertexHold; } }
         private bool isCompleted = false;
@@ -435,7 +435,7 @@ namespace Microsoft.Research.Naiad.Dataflow
 
         private System.Collections.Concurrent.ConcurrentQueue<Instruction> inputQueue;
 
-        internal readonly VertexOutputBuffer<S, SourceEpoch> output;
+        internal readonly VertexOutputBuffer<S, Epoch> output;
 
         private int currentVertexHold = 0;
 
@@ -444,7 +444,7 @@ namespace Microsoft.Research.Naiad.Dataflow
 
         internal override void PerformAction(Scheduling.Scheduler.WorkItem workItem)
         {
-            var epoch = new SourceEpoch().InitializeFrom(workItem.Requirement, 1).epoch;
+            var epoch = new Epoch().InitializeFrom(workItem.Requirement, 1).epoch;
 
             Instruction nextInstruction;
             bool success = inputQueue.TryDequeue(out nextInstruction);
@@ -501,7 +501,7 @@ namespace Microsoft.Research.Naiad.Dataflow
 
                     if (nextInstruction.Epoch >= this.currentVertexHold)
                     {
-                        var sendTime = new SourceEpoch(nextInstruction.Epoch);
+                        var sendTime = new Epoch(nextInstruction.Epoch);
                         var output = this.output.GetBufferForTime(sendTime);
                         for (int i = 0; i < nextInstruction.Payload.Length; ++i)
                         {
@@ -522,7 +522,7 @@ namespace Microsoft.Research.Naiad.Dataflow
             lock (this)     // this is probably already under a lock, but just to be safe...
             {
                 this.inputQueue.Enqueue(new Instruction(epoch, batch));
-                scheduler.EnqueueNotify(this, new SourceEpoch(this.currentVertexHold), false);
+                scheduler.EnqueueNotify(this, new Epoch(this.currentVertexHold), false);
             }
         }
 
@@ -531,7 +531,7 @@ namespace Microsoft.Research.Naiad.Dataflow
             lock (this)
             {
                 this.inputQueue.Enqueue(new Instruction(epoch, null));
-                scheduler.EnqueueNotify(this, new SourceEpoch(this.currentVertexHold), false);
+                scheduler.EnqueueNotify(this, new Epoch(this.currentVertexHold), false);
             }
         }
 
@@ -545,14 +545,14 @@ namespace Microsoft.Research.Naiad.Dataflow
             return "FromSourceInput";
         }
 
-        internal StreamingInputVertex(int index, Stage<SourceEpoch> stage)
+        internal StreamingInputVertex(int index, Stage<Epoch> stage)
             : base(index, stage)
         {
             this.inputQueue = new System.Collections.Concurrent.ConcurrentQueue<Instruction>();
-            this.output = new VertexOutputBuffer<S,SourceEpoch>(this);
+            this.output = new VertexOutputBuffer<S,Epoch>(this);
         }
 
-        internal static Stream<S, SourceEpoch> MakeStage(DataSource<S> source, InternalComputation internalComputation, Placement placement, string inputName)
+        internal static Stream<S, Epoch> MakeStage(DataSource<S> source, InternalComputation internalComputation, Placement placement, string inputName)
         {
             var stage = new StreamingInputStage<S>(source, placement, internalComputation, inputName);
          
@@ -580,12 +580,12 @@ namespace Microsoft.Research.Naiad.Dataflow
 
         private bool hasActivatedProgressTracker;
 
-        private readonly Stream<R, SourceEpoch> output;
-        public Stream<R, SourceEpoch> Output { get { return output; } }
+        private readonly Stream<R, Epoch> output;
+        public Stream<R, Epoch> Output { get { return output; } }
 
-        public static implicit operator Stream<R, SourceEpoch>(StreamingInputStage<R> stage) { return stage.Output; }
+        public static implicit operator Stream<R, Epoch>(StreamingInputStage<R> stage) { return stage.Output; }
 
-        public TimeContext<SourceEpoch> Context { get { return this.stage.Context; } }
+        public TimeContext<Epoch> Context { get { return this.stage.Context; } }
         internal InternalComputation InternalComputation { get { return this.stage.InternalComputation; } }
         public Placement Placement { get { return this.stage.Placement; } }
 
@@ -597,7 +597,7 @@ namespace Microsoft.Research.Naiad.Dataflow
             return this.InputName;
         }
 
-        private readonly Stage<StreamingInputVertex<R>, SourceEpoch> stage;
+        private readonly Stage<StreamingInputVertex<R>, Epoch> stage;
 
         public int CurrentEpoch { get { return this.localVertices.Min(x => x.CurrentEpoch); } }
         public int MaximumValidEpoch { get { return this.localVertices.Max(x => x.MaximumValidEpoch); } }
@@ -614,7 +614,7 @@ namespace Microsoft.Research.Naiad.Dataflow
         {
             this.inputName = inputName;
 
-            this.stage = Foundry.NewStage(new TimeContext<SourceEpoch>(internalComputation.ContextManager.RootContext), (i, v) => new StreamingInputVertex<R>(i, v), this.inputName);
+            this.stage = Foundry.NewStage(new TimeContext<Epoch>(internalComputation.ContextManager.RootContext), (i, v) => new StreamingInputVertex<R>(i, v), this.inputName);
 
             this.output = stage.NewOutput(vertex => vertex.output);
 

@@ -55,8 +55,8 @@ namespace Microsoft.Research.Naiad.Examples.GraphLINQ
                                                    .SelectMany(x => ReadLines(x));
 
                 // convert (string, string) -> edge and string -> node.
-                Stream<Edge, SourceEpoch> edges;  // will eventually hold stream of edges
-                Stream<Node, SourceEpoch> roots;  // will eventually hold stream of roots
+                Stream<Edge, Epoch> edges;  // will eventually hold stream of edges
+                Stream<Node, Epoch> roots;  // will eventually hold stream of roots
 
                 // an autorenamer context is used to consistently rename identifiers.
                 using (var renamer = new AutoRenamer<string>())

@@ -70,7 +70,7 @@ namespace Microsoft.Research.Naiad.Input
         /// <param name="source">input records</param>
         /// <param name="computation">graph manager</param>
         /// <returns>single epoch stream containing source records</returns>
-        public static Stream<TRecord, SourceEpoch> AsNaiadStream<TRecord>(this IEnumerable<TRecord> source, Computation computation)
+        public static Stream<TRecord, Epoch> AsNaiadStream<TRecord>(this IEnumerable<TRecord> source, Computation computation)
         {
             return computation.NewInput(new ConstantDataSource<TRecord>(source));
         }
@@ -82,7 +82,7 @@ namespace Microsoft.Research.Naiad.Input
         /// <param name="source">input sequence of records</param>
         /// <param name="computation">graph manager</param>
         /// <returns>stream of records, each epoch defined by consecutive OnNext calls from the observable</returns>
-        public static Stream<TRecord, SourceEpoch> AsNaiadStream<TRecord>(this IObservable<IEnumerable<TRecord>> source, Computation computation)
+        public static Stream<TRecord, Epoch> AsNaiadStream<TRecord>(this IObservable<IEnumerable<TRecord>> source, Computation computation)
         {
             var batched = new BatchedDataSource<TRecord>();
             var result = computation.NewInput(batched);
@@ -297,7 +297,7 @@ namespace Microsoft.Research.Naiad.Input
         private int OutstandingRegistrations;
         private bool Sealed;
 
-        private void OnRecv(Message<TRecord, SourceEpoch> message, int fromWorker)
+        private void OnRecv(Message<TRecord, Epoch> message, int fromWorker)
         {
             lock (this)
             {
@@ -419,7 +419,7 @@ namespace Microsoft.Research.Naiad.Input
         /// Creates a new InterGraphDataSink from a stream.
         /// </summary>
         /// <param name="stream">source stream</param>
-        public InterGraphDataSink(Stream<TRecord, SourceEpoch> stream)
+        public InterGraphDataSink(Stream<TRecord, Epoch> stream)
         {
             this.TargetSources = new List<InterGraphDataSource<TRecord>>();
 

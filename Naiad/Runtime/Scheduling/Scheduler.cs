@@ -418,11 +418,11 @@ namespace Microsoft.Research.Naiad.Scheduling
 
                     var dominated = false;
                     for (int j = 0; j < frontier.Length && !dominated; j++)
-                        if (computation.Reachability.LessThan(frontier[j], v) && !frontier[j].Equals(v))
+                        if (computation.Reachability.CouldResultIn(frontier[j], v) && !frontier[j].Equals(v))
                             dominated = true;
 
                     for (int j = 0; j < local.Length && !dominated; j++)
-                        if (computation.Reachability.LessThan(local[j], v) && !local[j].Equals(v))
+                        if (computation.Reachability.CouldResultIn(local[j], v) && !local[j].Equals(v))
                             dominated = true;
 
                     valid = !dominated;

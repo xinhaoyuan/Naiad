@@ -63,7 +63,7 @@ namespace Microsoft.Research.Naiad
         /// <typeparam name="R">record type</typeparam>
         /// <param name="stream">input stream</param>
         /// <returns>subscription for synchronization</returns>
-        public static Subscription Subscribe<R>(this Stream<R, SourceEpoch> stream)
+        public static Subscription Subscribe<R>(this Stream<R, Epoch> stream)
         {
             return stream.Subscribe(x => { });
         }
@@ -75,7 +75,7 @@ namespace Microsoft.Research.Naiad
         /// <param name="stream">input stream</param>
         /// <param name="action">callback</param>
         /// <returns>subscription for synchronization</returns>
-        public static Subscription Subscribe<R>(this Stream<R, SourceEpoch> stream, Action<IEnumerable<R>> action)
+        public static Subscription Subscribe<R>(this Stream<R, Epoch> stream, Action<IEnumerable<R>> action)
         {
             return new Subscription<R>(stream, new Placement.SingleVertex(0, 0), stream.Context, (j, t, l) => action(l));
         }
@@ -87,7 +87,7 @@ namespace Microsoft.Research.Naiad
         /// <param name="stream">input stream</param>
         /// <param name="action">callback on worker id and records</param>
         /// <returns>subscription for synchronization</returns>
-        public static Subscription Subscribe<R>(this Stream<R, SourceEpoch> stream, Action<int, IEnumerable<R>> action)
+        public static Subscription Subscribe<R>(this Stream<R, Epoch> stream, Action<int, IEnumerable<R>> action)
         {
             return stream.Subscribe((j, t, l) => action(j, l));
         }
@@ -99,7 +99,7 @@ namespace Microsoft.Research.Naiad
         /// <param name="stream">input stream</param>
         /// <param name="action">callback on worker id, epoch id, and records</param>
         /// <returns>subscription for synchronization</returns>
-        public static Subscription Subscribe<R>(this Stream<R, SourceEpoch> stream, Action<int, int, IEnumerable<R>> action)
+        public static Subscription Subscribe<R>(this Stream<R, Epoch> stream, Action<int, int, IEnumerable<R>> action)
         {
             return new Subscription<R>(stream, stream.ForStage.Placement, stream.Context, action);
         }
@@ -113,7 +113,7 @@ namespace Microsoft.Research.Naiad
         /// <param name="onNotify">notification callback</param>
         /// <param name="onComplete">completion callback</param>
         /// <returns>subscription for synchronization</returns>
-        public static Subscription Subscribe<R>(this Stream<R, SourceEpoch> stream, Action<Message<R, SourceEpoch>, int> onRecv, Action<SourceEpoch, int> onNotify, Action<int> onComplete)
+        public static Subscription Subscribe<R>(this Stream<R, Epoch> stream, Action<Message<R, Epoch>, int> onRecv, Action<Epoch, int> onNotify, Action<int> onComplete)
         {
             return new Subscription<R>(stream, stream.ForStage.Placement, stream.Context, onRecv, onNotify, onComplete);
         }
@@ -147,7 +147,7 @@ namespace Microsoft.Research.Naiad.Dataflow
         /// Called by vertices, indicates the receipt of an OnNotify(time)
         /// </summary>
         /// <param name="time">Time that has completed for the vertex</param>
-        internal void Signal(SourceEpoch time)
+        internal void Signal(Epoch time)
         {
             lock (this.Countdowns)
             {
@@ -193,13 +193,13 @@ namespace Microsoft.Research.Naiad.Dataflow
             countdown.Wait();
         }
 
-        internal Subscription(Stream<R, SourceEpoch> input, Placement placement, TimeContext<SourceEpoch> context, Action<Message<R, SourceEpoch>, int> onRecv, Action<SourceEpoch, int> onNotify, Action<int> onComplete)
+        internal Subscription(Stream<R, Epoch> input, Placement placement, TimeContext<Epoch> context, Action<Message<R, Epoch>, int> onRecv, Action<Epoch, int> onNotify, Action<int> onComplete)
         {
             foreach (var entry in placement)
                 if (entry.ProcessId == context.Context.Manager.InternalComputation.Controller.Configuration.ProcessID)
                     this.LocalVertexCount++;
 
-            var stage = new Stage<SubscribeStreamingVertex<R>, SourceEpoch>(placement, context, Stage.OperatorType.Default, (i, v) => new SubscribeStreamingVertex<R>(i, v, this, onRecv, onNotify, onComplete), "Subscribe");
+            var stage = new Stage<SubscribeStreamingVertex<R>, Epoch>(placement, context, Stage.OperatorType.Default, (i, v) => new SubscribeStreamingVertex<R>(i, v, this, onRecv, onNotify, onComplete), "Subscribe");
 
             stage.NewInput(input, (message, vertex) => vertex.OnReceive(message), null);
 
@@ -216,13 +216,13 @@ namespace Microsoft.Research.Naiad.Dataflow
             stage.InternalComputation.Register(this);
         }
 
-        internal Subscription(Stream<R, SourceEpoch> input, Placement placement, TimeContext<SourceEpoch> context, Action<int, int, IEnumerable<R>> action)
+        internal Subscription(Stream<R, Epoch> input, Placement placement, TimeContext<Epoch> context, Action<int, int, IEnumerable<R>> action)
         {
             foreach (var entry in placement)
                 if (entry.ProcessId == context.Context.Manager.InternalComputation.Controller.Configuration.ProcessID)
                     this.LocalVertexCount++;
 
-            var stage = new Stage<SubscribeBufferingVertex<R>, SourceEpoch>(placement, context, Stage.OperatorType.Default, (i, v) => new SubscribeBufferingVertex<R>(i, v, this, action), "Subscribe");
+            var stage = new Stage<SubscribeBufferingVertex<R>, Epoch>(placement, context, Stage.OperatorType.Default, (i, v) => new SubscribeBufferingVertex<R>(i, v, this, action), "Subscribe");
 
             stage.NewInput(input, (message, vertex) => vertex.OnReceive(message), null);
 
@@ -244,10 +244,10 @@ namespace Microsoft.Research.Naiad.Dataflow
     /// Individual subscription vertex, invokes actions and notifies parent stage.
     /// </summary>
     /// <typeparam name="R">Record type</typeparam>
-    internal class SubscribeStreamingVertex<R> : SinkVertex<R, SourceEpoch>
+    internal class SubscribeStreamingVertex<R> : SinkVertex<R, Epoch>
     {
-        Action<Message<R, SourceEpoch>, int> OnRecv;
-        Action<SourceEpoch, int> OnNotifyAction;
+        Action<Message<R, Epoch>, int> OnRecv;
+        Action<Epoch, int> OnNotifyAction;
         Action<int> OnCompleted;
 
         Subscription<R> Parent;
@@ -258,7 +258,7 @@ namespace Microsoft.Research.Naiad.Dataflow
             base.OnShutdown();
         }
 
-        public override void OnReceive(Message<R, SourceEpoch> record)
+        public override void OnReceive(Message<R, Epoch> record)
         {
             this.OnRecv(record, this.Scheduler.Index);
             this.NotifyAt(record.time);
@@ -268,7 +268,7 @@ namespace Microsoft.Research.Naiad.Dataflow
         /// When a time completes, invokes an action on received data, signals parent stage, and schedules OnNotify for next expoch.
         /// </summary>
         /// <param name="time"></param>
-        public override void OnNotify(SourceEpoch time)
+        public override void OnNotify(Epoch time)
         {
             // test to see if inputs supplied data for this epoch, or terminated instead
             var validEpoch = false;
@@ -282,10 +282,10 @@ namespace Microsoft.Research.Naiad.Dataflow
             this.Parent.Signal(time);
 
             if (!this.Parent.Disposed && validEpoch)
-                this.NotifyAt(new SourceEpoch(time.epoch + 1));         
+                this.NotifyAt(new Epoch(time.epoch + 1));         
         }
 
-        public SubscribeStreamingVertex(int index, Stage<SourceEpoch> stage, Subscription<R> parent, Action<Message<R, SourceEpoch>, int> onrecv, Action<SourceEpoch, int> onnotify, Action<int> oncomplete)
+        public SubscribeStreamingVertex(int index, Stage<Epoch> stage, Subscription<R> parent, Action<Message<R, Epoch>, int> onrecv, Action<Epoch, int> onnotify, Action<int> oncomplete)
             : base(index, stage)
         {
             this.Parent = parent;
@@ -294,7 +294,7 @@ namespace Microsoft.Research.Naiad.Dataflow
             this.OnNotifyAction = onnotify;
             this.OnCompleted = oncomplete;
 
-            this.NotifyAt(new SourceEpoch(0));
+            this.NotifyAt(new Epoch(0));
         }
     }
 
@@ -302,7 +302,7 @@ namespace Microsoft.Research.Naiad.Dataflow
     /// Individual subscription vertex, invokes actions and notifies parent stage.
     /// </summary>
     /// <typeparam name="R">Record type</typeparam>
-    internal class SubscribeBufferingVertex<R> : SinkBufferingVertex<R, SourceEpoch>
+    internal class SubscribeBufferingVertex<R> : SinkBufferingVertex<R, Epoch>
     {
         Action<int, int, IEnumerable<R>> Action;        // (vertexid, epoch, data) => ()
         Subscription<R> Parent;
@@ -311,7 +311,7 @@ namespace Microsoft.Research.Naiad.Dataflow
         /// When a time completes, invokes an action on received data, signals parent stage, and schedules OnNotify for next expoch.
         /// </summary>
         /// <param name="time"></param>
-        public override void OnNotify(SourceEpoch time)
+        public override void OnNotify(Epoch time)
         {
             var validEpoch = false;
             for (int i = 0; i < this.Parent.SourceInputs.Length; i++)
@@ -324,16 +324,16 @@ namespace Microsoft.Research.Naiad.Dataflow
             this.Parent.Signal(time);
 
             if (!this.Parent.Disposed && validEpoch)
-                this.NotifyAt(new SourceEpoch(time.epoch + 1));
+                this.NotifyAt(new Epoch(time.epoch + 1));
         }
 
-        public SubscribeBufferingVertex(int index, Stage<SourceEpoch> stage, Subscription<R> parent, Action<int, int, IEnumerable<R>> action)
+        public SubscribeBufferingVertex(int index, Stage<Epoch> stage, Subscription<R> parent, Action<int, int, IEnumerable<R>> action)
             : base(index, stage, null)
         {
             this.Parent = parent;
             this.Action = action;
-            this.Input = new VertexInputBuffer<R, SourceEpoch>(this);
-            this.NotifyAt(new SourceEpoch(0));
+            this.Input = new VertexInputBuffer<R, Epoch>(this);
+            this.NotifyAt(new Epoch(0));
         }
     }
 }

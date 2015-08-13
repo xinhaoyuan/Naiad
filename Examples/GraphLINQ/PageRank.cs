@@ -46,7 +46,7 @@ namespace Microsoft.Research.Naiad.Examples.GraphLINQ
             using (var computation = NewComputation.FromArgs(ref args))
             {
                 // either read inputs from a file, or generate them randomly.
-                Stream<Edge, SourceEpoch> edges;
+                Stream<Edge, Epoch> edges;
                 if (args.Length == 1)
                 {
                     // generate a random graph in each process; pagerank computation is performed on the union of edges.

@@ -33,25 +33,18 @@ namespace Microsoft.Research.Naiad.Runtime.Progress
 
         public int CompareTo(Pointstamp a, Pointstamp b)
         {
-            if (a.Timestamp[0] != b.Timestamp[0])
-                return a.Timestamp[0] - b.Timestamp[0];
-
-            if (a.Equals(b))
-                return 0;
-
-            if (this.LessThan(a, b))
+            if (CouldResultIn(a, b))
                 return -1;
 
-            if (this.LessThan(a, b))
+            if (CouldResultIn(b, a))
                 return 1;
 
             return (a.Location - b.Location);
         }
 
-        public bool LessThan(Pointstamp a, Pointstamp b)
+        public bool CouldResultIn(Pointstamp a, Pointstamp b)
         {
-            // early exit if this.epoch > that.epoch
-            if (a.Timestamp[0] > b.Timestamp[0])
+            if (!a.DataTimestamp.CouldResultIn(b.DataTimestamp))
                 return false;
 
             var depth = ComparisonDepth[a.Location][b.Location];
@@ -64,13 +57,13 @@ namespace Microsoft.Research.Naiad.Runtime.Progress
 
                 for (int i = 1; i < depth; i++)
                 {
-                    if (a.Timestamp[i] > b.Timestamp[i])
+                    if (a.StructTimestamp[i] > b.StructTimestamp[i])
                         return false;
 
-                    if (i + 1 == depth && increment && a.Timestamp[i] + 1 > b.Timestamp[i])
+                    if (i + 1 == depth && increment && a.StructTimestamp[i] + 1 > b.StructTimestamp[i])
                         return false;
 
-                    if (a.Timestamp[i] < b.Timestamp[i])
+                    if (a.StructTimestamp[i] < b.StructTimestamp[i])
                         return true;
                 }
 
@@ -96,7 +89,7 @@ namespace Microsoft.Research.Naiad.Runtime.Progress
             public GraphNode(Dataflow.Stage stage)
             {
                 this.Index = stage.StageId;
-                this.Depth = stage.DefaultVersion.Timestamp.Length;
+                this.Depth = stage.DefaultVersion.StructTimestamp.Length;
 
                 this.Ingress = stage.IsIterationIngress;
                 this.Egress = stage.IsIterationEgress;
@@ -112,7 +105,7 @@ namespace Microsoft.Research.Naiad.Runtime.Progress
             public GraphNode(Dataflow.Edge edge)
             {
                 this.Index = edge.ChannelId;
-                this.Depth = edge.SourceStage.DefaultVersion.Timestamp.Length;
+                this.Depth = edge.SourceStage.DefaultVersion.StructTimestamp.Length;
 
                 this.Ingress = false;
                 this.Egress = false;
@@ -195,20 +188,19 @@ namespace Microsoft.Research.Naiad.Runtime.Progress
                     var depths = this.ComparisonDepth[time.Location][limits[i]];
                     var coords = this.Graph[limits[i]].Depth;
 
-                    var newVersion = new Pointstamp();
+                    var newVersion = new Pointstamp(0, coords);
                     newVersion.Location = limits[i];
-                    newVersion.Timestamp.Length = coords;
 
-                    for (int j = 0; j < newVersion.Timestamp.Length; j++)
+                    for (int j = 0; j < newVersion.StructTimestamp.Length; j++)
                     {
                         if (j < Math.Abs(depths))
-                            newVersion.Timestamp[j] = time.Timestamp[j];
+                            newVersion.StructTimestamp[j] = time.StructTimestamp[j];
                         else
-                            newVersion.Timestamp[j] = 0;
+                            newVersion.StructTimestamp[j] = 0;
                     }
 
                     if (depths < 0)
-                        newVersion.Timestamp[Math.Abs(depths) - 1] = newVersion.Timestamp[Math.Abs(depths) - 1] + 1;
+                        newVersion.StructTimestamp[Math.Abs(depths) - 1] = newVersion.StructTimestamp[Math.Abs(depths) - 1] + 1;
 
                     yield return newVersion;
                 }

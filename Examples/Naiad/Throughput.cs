@@ -33,28 +33,28 @@ using System.Text;
 
 namespace Microsoft.Research.Naiad.Examples.Throughput
 {
-    public class ProducerVertex : Vertex<SourceEpoch>
+    public class ProducerVertex : Vertex<Epoch>
     {
-        private readonly VertexOutputBuffer<Pair<int, int>, SourceEpoch> output;
+        private readonly VertexOutputBuffer<Pair<int, int>, Epoch> output;
 
         private readonly int numberToSend;
 
-        public override void OnNotify(SourceEpoch time)
+        public override void OnNotify(Epoch time)
         {
-            var output = this.output.GetBufferForTime(new SourceEpoch(0));
+            var output = this.output.GetBufferForTime(new Epoch(0));
             for (int i = 0; i < this.numberToSend; ++i)
                 output.Send(this.VertexId.PairWith(i));
         }
 
-        private ProducerVertex(int id, Stage<SourceEpoch> stage, int numberToSend)
+        private ProducerVertex(int id, Stage<Epoch> stage, int numberToSend)
             : base(id, stage)
         {
             this.numberToSend = numberToSend;
-            this.output = new VertexOutputBuffer<Pair<int, int>, SourceEpoch>(this);
-            this.NotifyAt(new SourceEpoch(0));
+            this.output = new VertexOutputBuffer<Pair<int, int>, Epoch>(this);
+            this.NotifyAt(new Epoch(0));
         }
 
-        public static Stream<Pair<int, int>, SourceEpoch> MakeStage(int numberToSend, int startProcess, int endProcess, int numberOfWorkers, Stream<Pair<int, int>, SourceEpoch> input)
+        public static Stream<Pair<int, int>, Epoch> MakeStage(int numberToSend, int startProcess, int endProcess, int numberOfWorkers, Stream<Pair<int, int>, Epoch> input)
         {
             var locations = new List<VertexLocation>();
             for (int i = 0; i < endProcess - startProcess; i++)
@@ -63,20 +63,20 @@ namespace Microsoft.Research.Naiad.Examples.Throughput
 
             Placement placement = new Placement.Explicit(locations);
 
-            Stage<ProducerVertex, SourceEpoch> stage = Foundry.NewStage(placement, input.Context, (i, s) => new ProducerVertex(i, s, numberToSend), "Producer");
+            Stage<ProducerVertex, Epoch> stage = Foundry.NewStage(placement, input.Context, (i, s) => new ProducerVertex(i, s, numberToSend), "Producer");
             stage.NewInput(input, (v, m) => { }, null);
-            Stream<Pair<int, int>, SourceEpoch> stream = stage.NewOutput(v => v.output);
+            Stream<Pair<int, int>, Epoch> stream = stage.NewOutput(v => v.output);
             return stream;
         }
     }
 
-    public class ConsumerVertex : Vertex<SourceEpoch>
+    public class ConsumerVertex : Vertex<Epoch>
     {
         private int numReceived = 0;
         private readonly int numberToConsume;
         private Stopwatch stopwatch = new Stopwatch();
 
-        private void OnRecv(Message<Pair<int, int>, SourceEpoch> message)
+        private void OnRecv(Message<Pair<int, int>, Epoch> message)
         {
             //Console.WriteLine("In OnRecv");
             if (!stopwatch.IsRunning)
@@ -85,19 +85,19 @@ namespace Microsoft.Research.Naiad.Examples.Throughput
             numReceived += message.length;
         }
 
-        public override void OnNotify(SourceEpoch time)
+        public override void OnNotify(Epoch time)
         {
             Console.WriteLine("Received {0} records in {1}", numReceived, stopwatch.Elapsed);
         }
 
-        private ConsumerVertex(int id, Stage<SourceEpoch> stage, int numberToConsume)
+        private ConsumerVertex(int id, Stage<Epoch> stage, int numberToConsume)
             : base(id, stage)
         {
             this.numberToConsume = numberToConsume;
-            this.NotifyAt(new SourceEpoch(0));
+            this.NotifyAt(new Epoch(0));
         }
 
-        public static Stage<ConsumerVertex, SourceEpoch> MakeStage(int numberToConsume, int startProcess, int endProcess, int numberOfWorkers, bool exchange, Stream<Pair<int, int>, SourceEpoch> stream)
+        public static Stage<ConsumerVertex, Epoch> MakeStage(int numberToConsume, int startProcess, int endProcess, int numberOfWorkers, bool exchange, Stream<Pair<int, int>, Epoch> stream)
         {
             var locations = new List<VertexLocation>();
             for (int i = 0; i < endProcess - startProcess; i++)
@@ -106,7 +106,7 @@ namespace Microsoft.Research.Naiad.Examples.Throughput
 
             Placement placement = new Placement.Explicit(locations);
 
-            Stage<ConsumerVertex, SourceEpoch> stage = Foundry.NewStage(placement, stream.Context, (i, s) => new ConsumerVertex(i, s, numberToConsume), "Consumer");
+            Stage<ConsumerVertex, Epoch> stage = Foundry.NewStage(placement, stream.Context, (i, s) => new ConsumerVertex(i, s, numberToConsume), "Consumer");
 
 
             if (exchange)
@@ -137,8 +137,8 @@ namespace Microsoft.Research.Naiad.Examples.Throughput
 
                 var input = new Pair<int, int>[] { }.AsNaiadStream(computation);
 
-                Stream<Pair<int, int>, SourceEpoch> stream = ProducerVertex.MakeStage(numToExchange, 0, producers, computation.Configuration.WorkerCount, input);
-                Stage<ConsumerVertex, SourceEpoch> consumer = ConsumerVertex.MakeStage(numToExchange, computation.Configuration.Processes - consumers, computation.Configuration.Processes, computation.Configuration.WorkerCount, exchange, stream);
+                Stream<Pair<int, int>, Epoch> stream = ProducerVertex.MakeStage(numToExchange, 0, producers, computation.Configuration.WorkerCount, input);
+                Stage<ConsumerVertex, Epoch> consumer = ConsumerVertex.MakeStage(numToExchange, computation.Configuration.Processes - consumers, computation.Configuration.Processes, computation.Configuration.WorkerCount, exchange, stream);
 
                 computation.Activate();
                 computation.Join();
