@@ -27,20 +27,60 @@ using Microsoft.Research.Naiad.DataStructures;
 using Microsoft.Research.Naiad.Dataflow;
 
 namespace Microsoft.Research.Naiad.Runtime.Progress
-{
+{ 
+    public struct StructuralTimestamp
+    {
+        public Util.SArray<int> items;
+        public StructuralTimestamp(int size)
+        {
+            items = new Util.SArray<int>(size);
+        }
+        public bool LessThan(StructuralTimestamp other)
+        {
+            if (other.items.Length != items.Length) return false;
+            for (int i = 0; i < items.Length; ++i)
+            {
+                if (items[i] > other.items[i])
+                    return false;
+            }
+            return true;
+        }
+    }
+    public struct DataTimestamp
+    {
+        public Util.SArray<KeyValuePair<int, int>> items;
+        public DataTimestamp(int size)
+        {
+            items = new Util.SArray<KeyValuePair<int, int>>(size);
+        }
+        public bool LessThan(DataTimestamp other)
+        {
+            int i, j = 0;
+            for (i = 0; i < items.Length; ++i)
+            {
+                while (items[i].Key != other.items[j].Key && j < other.items.Length)
+                    ++j;
+                // Key mismatch
+                if (j == other.items.Length) return false;
+                if (items[i].Value > other.items[j].Value) return false;
+                ++j;
+            }
+            return true;
+        }
+    }
+
     internal static class PointstampConstructor
     {
         public static Pointstamp ToPointstamp<T>(this T time, int graphObjectID) where T : Time<T>
         {
-            var pointstamp = new Pointstamp();
-            
+            var pointstamp = new Pointstamp(time.SourceCoordinates, time.StructuralCoordinates);
             pointstamp.Location = graphObjectID;
-            pointstamp.Timestamp.Length = time.Coordinates;
-            time.Populate(ref pointstamp);
+            time.Populate(ref pointstamp.SourceCoordinates, ref pointstamp.StructuralCoordinates);
 
             return pointstamp;
         }
     }
+
 
     /// <summary>
     /// Represents a combined dataflow graph location and timestamp,
@@ -50,108 +90,12 @@ namespace Microsoft.Research.Naiad.Runtime.Progress
     public struct Pointstamp : IEquatable<Pointstamp>
     {
         /// <summary>
-        /// A fake array implementation to avoid heap allocation
-        /// </summary>
-        public struct FakeArray
-        {
-            /// <summary>
-            /// first coordinate
-            /// </summary>
-            public int a;
-
-            /// <summary>
-            /// second coordinate
-            /// </summary>
-            public int b;
-
-            /// <summary>
-            /// third coordinate
-            /// </summary>
-            public int c;
-
-            /// <summary>
-            /// fourth coordinate
-            /// </summary>
-            public int d;
-
-            /// <summary>
-            /// "length" of array
-            /// </summary>
-            public int Length;
-
-            /// <summary>
-            /// space for anything beyond four coordinates
-            /// </summary>
-            public int[] spillover;
-
-            /// <summary>
-            /// Returns the value at the given <paramref name="index"/>.
-            /// </summary>
-            /// <param name="index">The index.</param>
-            /// <returns>The value at the given <paramref name="index"/>.</returns>
-            public int this[int index]
-            {
-                get 
-                {
-                    switch (index)
-                    {
-                        case 0: return a;
-                        case 1: return b;
-                        case 2: return c;
-                        case 3: return d;
-                        default: return spillover[index - 4];
-                    }
-                }
-                set 
-                {
-                    switch (index)
-                    {
-                        case 0: a = value; break;
-                        case 1: b = value; break;
-                        case 2: c = value; break;
-                        case 3: d = value; break;
-                        default: spillover[index - 4] = value; break;
-                    }
-                }
-            }
-
-            /// <summary>
-            /// Constructs a FakeArray with the specified size.
-            /// </summary>
-            /// <param name="size">The size of this FakeArray.</param>
-            public FakeArray(int size) 
-            { 
-                Length = size; 
-                a = b = c = d = 0;
-                if (Length > 4)
-                    spillover = new int[Length - 4];
-                else
-                    spillover = null;
-            }
-
-            /// <summary>
-            /// Returns a string representation of this array.
-            /// </summary>
-            /// <returns>A string representation of this array.</returns>
-            public override string ToString()
-            {
-                var result = new StringBuilder().Append(this[0]);
-                for (int i = 1; i < this.Length; i++)
-                    result.AppendFormat(", {0}", this[i]);
-
-                return result.ToString();
-            }
-        }
-
-        /// <summary>
         /// Dataflow graph location
         /// </summary>
         public int Location;
 
-        /// <summary>
-        /// Timestamp
-        /// </summary>
-        public FakeArray Timestamp;
+        public StructuralTimestamp StructTimestamp;
+        public DataTimestamp DataTimestamp;
 
         /// <summary>
         /// Returns a hashcode for this pointstamp.
@@ -160,8 +104,10 @@ namespace Microsoft.Research.Naiad.Runtime.Progress
         public override int GetHashCode()
         {
             var result = Location;
-            for (int i = 0; i < Timestamp.Length; i++)
-                result += Timestamp[i];
+            for (int i = 0; i < DataTimestamp.items.Length; ++i)
+                result += DataTimestamp.items[i].Key + DataTimestamp.items[i].Value;
+            for (int i = 0; i < StructTimestamp.items.Length; i++)
+                result += StructTimestamp.items[i];
 
             return result;
         }
@@ -172,7 +118,7 @@ namespace Microsoft.Research.Naiad.Runtime.Progress
         /// <returns>A string representation of this pointstamp.</returns>
         public override string ToString()
         {
-            return String.Format("[location = {0}, timestamp = <{1}>]", Location, Timestamp);
+            return String.Format("[location = {0}, data = <{1}>, struct= <{2}>]", Location, DataTimestamp.items, StructTimestamp.items);
         }
 
         /// <summary>
@@ -185,12 +131,23 @@ namespace Microsoft.Research.Naiad.Runtime.Progress
             if (this.Location != other.Location)
                 return false;
 
-            if (this.Timestamp.Length != other.Timestamp.Length)
+            if (this.StructTimestamp.items.Length != other.StructTimestamp.items.Length)
                 return false;
 
-            for (int i = 0; i < this.Timestamp.Length; i++)
-                if (this.Timestamp[i] != other.Timestamp[i])
+            for (int i = 0; i < this.StructTimestamp.items.Length; i++)
+                if (this.StructTimestamp.items[i] != other.StructTimestamp.items[i])
                     return false;
+
+            if (this.DataTimestamp.items.Length != other.DataTimestamp.items.Length)
+                return false;
+
+            for (int i = 0; i < this.DataTimestamp.items.Length; i++)
+            {
+                if (this.DataTimestamp.items[i].Key != other.DataTimestamp.items[i].Key)
+                    return false;
+                if (this.DataTimestamp.items[i].Value != other.DataTimestamp.items[i].Value)
+                    return false;
+            }
 
             return true;
         }
@@ -202,7 +159,8 @@ namespace Microsoft.Research.Naiad.Runtime.Progress
         internal Pointstamp(Pointstamp that) 
         {
             this.Location = that.Location;
-            this.Timestamp = that.Timestamp;
+            this.DataTimestamp = that.DataTimestamp;
+            this.StructTimestamp = that.StructTimestamp;
         }
 
         /// <summary>
@@ -210,12 +168,22 @@ namespace Microsoft.Research.Naiad.Runtime.Progress
         /// </summary>
         /// <param name="location">dataflow graph location</param>
         /// <param name="indices">timestamp indices</param>
-        internal Pointstamp(int location, int[] indices)
+        internal Pointstamp(int location, KeyValuePair<int, int>[] dataTimestamp, int[] structTimestamp)
         {
             Location = location;
-            Timestamp = new FakeArray(indices.Length);
-            for (int j = 0; j < indices.Length; j++)
-                Timestamp[j] = indices[j];
+            DataTimestamp = new DataTimestamp(dataTimestamp.Length);
+            for (int j = 0; j < dataTimestamp.Length; j++)
+                DataTimestamp.items[j] = dataTimestamp[j];
+            StructTimestamp = new StructuralTimestamp(structTimestamp.Length);
+            for (int j = 0; j < structTimestamp.Length; j++)
+                StructTimestamp.items[j] = structTimestamp[j];
+        }
+
+        internal Pointstamp(int dataTimestampSize, int sturctTimestampSize)
+        {
+            Location = default(int);
+            DataTimestamp = new DataTimestamp(dataTimestampSize);
+            StructTimestamp = new StructuralTimestamp(sturctTimestampSize);
         }
     }
 }

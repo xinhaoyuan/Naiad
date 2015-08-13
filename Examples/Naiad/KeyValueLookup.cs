@@ -34,7 +34,7 @@ namespace Microsoft.Research.Naiad.Examples.KeyValueLookup
     public static class ExtensionMethods
     {
         // key-value pairs on the first input are retrieved via the second input.
-        public static Stream<Pair<TKey, TValue>, Epoch> KeyValueLookup<TKey, TValue>(this Stream<Pair<TKey, TValue>, Epoch> kvpairs, Stream<TKey, Epoch> requests)
+        public static Stream<Pair<TKey, TValue>, SourceEpoch> KeyValueLookup<TKey, TValue>(this Stream<Pair<TKey, TValue>, SourceEpoch> kvpairs, Stream<TKey, SourceEpoch> requests)
         {
             return Foundry.NewBinaryStage(kvpairs, requests, (i, s) => new KeyValueLookupVertex<TKey, TValue>(i, s), x => x.First.GetHashCode(), y => y.GetHashCode(), null, "Lookup");
         }
@@ -45,17 +45,17 @@ namespace Microsoft.Research.Naiad.Examples.KeyValueLookup
         /// </summary>
         /// <typeparam name="TKey">key type</typeparam>
         /// <typeparam name="TValue">value type</typeparam>
-        public class KeyValueLookupVertex<TKey, TValue> : BinaryVertex<Pair<TKey, TValue>, TKey, Pair<TKey, TValue>, Epoch>
+        public class KeyValueLookupVertex<TKey, TValue> : BinaryVertex<Pair<TKey, TValue>, TKey, Pair<TKey, TValue>, SourceEpoch>
         {
             private readonly Dictionary<TKey, TValue> Values = new Dictionary<TKey, TValue>();
 
-            public override void OnReceive1(Message<Pair<TKey, TValue>, Epoch> message)
+            public override void OnReceive1(Message<Pair<TKey, TValue>, SourceEpoch> message)
             {
                 for (int i = 0; i < message.length; i++)
                     this.Values[message.payload[i].First] = message.payload[i].Second;
             }
 
-            public override void OnReceive2(Message<TKey, Epoch> message)
+            public override void OnReceive2(Message<TKey, SourceEpoch> message)
             {
                 var output = this.Output.GetBufferForTime(message.time);
 
@@ -67,7 +67,7 @@ namespace Microsoft.Research.Naiad.Examples.KeyValueLookup
                 }
             }
 
-            public KeyValueLookupVertex(int index, Stage<Epoch> vertex) : base(index, vertex) { }
+            public KeyValueLookupVertex(int index, Stage<SourceEpoch> vertex) : base(index, vertex) { }
         }
     }
 

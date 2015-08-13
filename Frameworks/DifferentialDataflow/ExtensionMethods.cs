@@ -120,28 +120,28 @@ namespace Microsoft.Research.Naiad.Frameworks.DifferentialDataflow
         #endregion
 
         /// <summary>
-        /// Computes a sliding window over the given <paramref name="windowSize"/> number of <see cref="Epoch"/>s for the <paramref name="input"/> collection.
+        /// Computes a sliding window over the given <paramref name="windowSize"/> number of <see cref="SourceEpoch"/>s for the <paramref name="input"/> collection.
         /// </summary>
         /// <typeparam name="TRecord">The type of the input records.</typeparam>
         /// <param name="input">The input collection</param>
         /// <param name="windowSize">Number of epochs in which each record should appear.</param>
         /// <returns>The collection that represents a sliding window over the input.</returns>
-        public static Collection<TRecord, Epoch> SlidingWindow<TRecord>(this Collection<TRecord, Epoch> input, int windowSize)
+        public static Collection<TRecord, SourceEpoch> SlidingWindow<TRecord>(this Collection<TRecord, SourceEpoch> input, int windowSize)
             where TRecord : IEquatable<TRecord>
         {
-            var adjustedLattice = input.AdjustTime((r, i) => new Epoch(i.epoch + windowSize));
+            var adjustedLattice = input.AdjustTime((r, i) => new SourceEpoch(i.epoch + windowSize));
 
             return input.Except(adjustedLattice);
         }
 
         /// <summary>
-        /// Computes a sliding window over the given <paramref name="windowSize"/> number of <see cref="Epoch"/>s for the <paramref name="input"/> collection.
+        /// Computes a sliding window over the given <paramref name="windowSize"/> number of <see cref="SourceEpoch"/>s for the <paramref name="input"/> collection.
         /// </summary>
         /// <typeparam name="TRecord">The type of the input records.</typeparam>
         /// <param name="input">The input collection</param>
         /// <param name="windowSize">Number of epochs in which each record should appear.</param>
         /// <returns>The collection that represents a sliding window over the input.</returns>
-        public static Collection<TRecord, Epoch> SlidingWindow<TRecord>(this Stream<TRecord, Epoch> input, int windowSize)
+        public static Collection<TRecord, SourceEpoch> SlidingWindow<TRecord>(this Stream<TRecord, SourceEpoch> input, int windowSize)
             where TRecord : IEquatable<TRecord>
         {
             return input.Select(x => new Weighted<TRecord>(x, 1))
@@ -265,7 +265,7 @@ namespace Microsoft.Research.Naiad.Frameworks.DifferentialDataflow
         /// <param name="input">The input collection.</param>
         /// <param name="action">An action that is called with the list of weighted records from each epoch.</param>
         /// <returns>A <see cref="Subscription"/> object for synchronization.</returns>
-        public static Microsoft.Research.Naiad.Subscription Subscribe<TRecord>(this Collection<TRecord, Epoch> input, Action<Weighted<TRecord>[]> action)
+        public static Microsoft.Research.Naiad.Subscription Subscribe<TRecord>(this Collection<TRecord, SourceEpoch> input, Action<Weighted<TRecord>[]> action)
             where TRecord : IEquatable<TRecord>
         {
             return input.Output.Subscribe(x => action(x.ToArray()));

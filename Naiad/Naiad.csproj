@@ -168,6 +168,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Channels\Channel.cs" />
     <Compile Include="Util\DependencyLister.cs" />
+    <Compile Include="Util\StructCollections.cs" />
     <Compile Include="Util\Win32.cs" />
     <Compile Include="Dataflow\Stage.cs" />
   </ItemGroup>

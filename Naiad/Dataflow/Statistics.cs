@@ -115,7 +115,7 @@ namespace Microsoft.Research.Naiad.Dataflow
             void ConnectDoubleAggregator(Stream<Pair<string, ReportingRecord<double>>, T> sender);
         }
 
-        internal interface IRootReporting : IReportingConnector<Epoch>
+        internal interface IRootReporting : IReportingConnector<SourceEpoch>
         {
             bool HasDomain { get; }
             bool HasInline { get; }
@@ -375,16 +375,16 @@ namespace Microsoft.Research.Naiad.Dataflow
                 get { return HasInline && doingAggregate; }
             }
 
-            public void ConnectInline(Stream<string, Epoch> sender)
+            public void ConnectInline(Stream<string, SourceEpoch> sender)
             {
                 inlineReporter.ConnectInline(sender);
             }
 
-            public void ConnectIntAggregator(Stream<Pair<string, ReportingRecord<Int64>>, Epoch> sender)
+            public void ConnectIntAggregator(Stream<Pair<string, ReportingRecord<Int64>>, SourceEpoch> sender)
             {
                 // do nothing since this is the head of the chain
             }
-            public void ConnectDoubleAggregator(Stream<Pair<string, ReportingRecord<double>>, Epoch> sender)
+            public void ConnectDoubleAggregator(Stream<Pair<string, ReportingRecord<double>>, SourceEpoch> sender)
             {
                 // do nothing since this is the head of the chain
             }
@@ -418,7 +418,7 @@ namespace Microsoft.Research.Naiad.Dataflow
                 {
                     domainReportingIngress = manager.InternalComputation.NewInput<string>();
                     domainReporter = new RootStatisticsStage(
-                        manager.MakeRawContextForScope<Epoch>("Domain Root"), "Domain Root Statistics", "rtdomain.txt");
+                        manager.MakeRawContextForScope<SourceEpoch>("Domain Root"), "Domain Root Statistics", "rtdomain.txt");
                     domainReporter.ConnectInline(domainReportingIngress.Stream);
                 }
                 else
@@ -430,7 +430,7 @@ namespace Microsoft.Research.Naiad.Dataflow
                 if (makeInline)
                 {
                     inlineReporter = new RootStatisticsStage(
-                        manager.MakeRawContextForScope<Epoch>("Inline Root"), "Inline Root Statistics", "rtinline.txt");
+                        manager.MakeRawContextForScope<SourceEpoch>("Inline Root"), "Inline Root Statistics", "rtinline.txt");
 
                     doingAggregate = doAggregate;
                 }
@@ -442,12 +442,12 @@ namespace Microsoft.Research.Naiad.Dataflow
             }
         }
 
-        internal class RootStatisticsVertex : Microsoft.Research.Naiad.Dataflow.Vertex<Epoch>
+        internal class RootStatisticsVertex : Microsoft.Research.Naiad.Dataflow.Vertex<SourceEpoch>
         {
             private readonly StreamWriter output;
             private readonly System.Diagnostics.Stopwatch timer;
 
-            public void OnRecv(Message<string, Epoch> message)
+            public void OnRecv(Message<string, SourceEpoch> message)
             {
                 for (int i = 0; i < message.length; i++)
                 {
@@ -455,7 +455,7 @@ namespace Microsoft.Research.Naiad.Dataflow
                 }
             }
 
-            public override void OnNotify(Epoch time)
+            public override void OnNotify(SourceEpoch time)
             {
                 // do nothing since epochs mean nothing in this context
             }
@@ -465,7 +465,7 @@ namespace Microsoft.Research.Naiad.Dataflow
                 output.Close();
             }
 
-            public RootStatisticsVertex(int index, Stage<Epoch> parent, string outputFileName)
+            public RootStatisticsVertex(int index, Stage<SourceEpoch> parent, string outputFileName)
                 : base(index, parent)
             {
 
@@ -475,12 +475,12 @@ namespace Microsoft.Research.Naiad.Dataflow
             }
         }
 
-        internal class RootStatisticsStage : IReportingConnector<Epoch>
+        internal class RootStatisticsStage : IReportingConnector<SourceEpoch>
         {
-            private Stage<RootStatisticsVertex, Epoch> stage;
+            private Stage<RootStatisticsVertex, SourceEpoch> stage;
 
-            private readonly List<StageInput<string, Epoch>> receivers;
-            public IEnumerable<StageInput<string, Epoch>> Receivers
+            private readonly List<StageInput<string, SourceEpoch>> receivers;
+            public IEnumerable<StageInput<string, SourceEpoch>> Receivers
             {
                 get { return receivers; }
             }
@@ -493,25 +493,25 @@ namespace Microsoft.Research.Naiad.Dataflow
                 }
             }
 
-            public void ConnectInline(Stream<string, Epoch> sender)
+            public void ConnectInline(Stream<string, SourceEpoch> sender)
             {
                 this.stage.NewInput(sender, (message, vertex) => vertex.OnRecv(message), null);
             }
 
-            public void ConnectIntAggregator(Stream<Pair<string, ReportingRecord<Int64>>, Epoch> sender)
+            public void ConnectIntAggregator(Stream<Pair<string, ReportingRecord<Int64>>, SourceEpoch> sender)
             {
                 // do nothing since this is the head of the chain
             }
-            public void ConnectDoubleAggregator(Stream<Pair<string, ReportingRecord<double>>, Epoch> sender)
+            public void ConnectDoubleAggregator(Stream<Pair<string, ReportingRecord<double>>, SourceEpoch> sender)
             {
                 // do nothing since this is the head of the chain
             }
 
-            internal RootStatisticsStage(ITimeContext<Epoch> context, string name, string outputFile)
+            internal RootStatisticsStage(ITimeContext<SourceEpoch> context, string name, string outputFile)
             {
-                this.stage = new Stage<RootStatisticsVertex, Epoch>(new Placement.SingleVertex(0, 0), new TimeContext<Epoch>(context), Stage.OperatorType.Default, (i, v) => new RootStatisticsVertex(i, v, outputFile), name);
+                this.stage = new Stage<RootStatisticsVertex, SourceEpoch>(new Placement.SingleVertex(0, 0), new TimeContext<SourceEpoch>(context), Stage.OperatorType.Default, (i, v) => new RootStatisticsVertex(i, v, outputFile), name);
 
-                receivers = new List<StageInput<string, Epoch>>();
+                receivers = new List<StageInput<string, SourceEpoch>>();
             }
         }
 
@@ -587,7 +587,7 @@ namespace Microsoft.Research.Naiad.Dataflow
         InternalComputation InternalComputation { get; }
         ITimeContext<T> MakeContextForScope<T>(string name, Reporting.IReportingConnector<T> downstreamConnector) where T : Time<T>;
         ITimeContext<T> MakeRawContextForScope<T>(string name) where T : Time<T>;
-        ITimeContext<Epoch> RootContext { get; }
+        ITimeContext<SourceEpoch> RootContext { get; }
         Reporting.IRootReporting RootStatistics { get; }
         void ShutDown();
     }
@@ -633,8 +633,8 @@ namespace Microsoft.Research.Naiad.Dataflow
         private readonly InternalComputation internalComputation;
         public InternalComputation InternalComputation { get { return this.internalComputation; } }
 
-        private ITimeContext<Epoch> rootContext;
-        public ITimeContext<Epoch> RootContext { get { return rootContext; } }
+        private ITimeContext<SourceEpoch> rootContext;
+        public ITimeContext<SourceEpoch> RootContext { get { return rootContext; } }
 
         private Reporting.RootReporting reporting;
         public Reporting.IRootReporting RootStatistics { get { return reporting; } }
@@ -643,7 +643,7 @@ namespace Microsoft.Research.Naiad.Dataflow
         internal void InitializeReporting(bool makeDomain, bool makeInline, bool doAggregate)
         {
             this.reporting = new Reporting.RootReporting(this, makeDomain, makeInline, doAggregate);
-            this.rootContext = MakeContextForScope<Epoch>("Root", this.reporting);
+            this.rootContext = MakeContextForScope<SourceEpoch>("Root", this.reporting);
         }
 
         public void ShutDown()

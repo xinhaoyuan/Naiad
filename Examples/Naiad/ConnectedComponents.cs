@@ -38,7 +38,7 @@ namespace Microsoft.Research.Naiad.Examples.ConnectedComponents
     public static class ExtensionMethods
     {
         // takes a graph as an edge stream and produces a stream of pairs (x,y) where y is the least vertex capable of reaching vertex x.
-        public static Stream<Pair<TVertex, TVertex>, Epoch> DirectedReachability<TVertex>(this Stream<Pair<TVertex, TVertex>, Epoch> edges) 
+        public static Stream<Pair<TVertex, TVertex>, SourceEpoch> DirectedReachability<TVertex>(this Stream<Pair<TVertex, TVertex>, SourceEpoch> edges) 
             where TVertex : IEquatable<TVertex>, IComparable<TVertex>
         {
             // prepartitioning reduces exchanges by one.

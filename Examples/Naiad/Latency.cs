@@ -35,34 +35,34 @@ using System.Text;
 
 namespace Microsoft.Research.Naiad.Examples.Latency
 {
-    internal class Barrier : UnaryVertex<int, int, IterationIn<Epoch>>
+    internal class Barrier : UnaryVertex<int, int, IterationIn<SourceEpoch>>
     {
         private readonly int Iterations;
 
         // Send round-robin to destinations to try and get better network utilization
-        public override void OnNotify(IterationIn<Epoch> time)
+        public override void OnNotify(IterationIn<SourceEpoch> time)
         {
             if (time.iteration < this.Iterations)
-                this.NotifyAt(new IterationIn<Epoch>(time.outerTime, time.iteration + 1));
+                this.NotifyAt(new IterationIn<SourceEpoch>(time.outerTime, time.iteration + 1));
         }
 
-        public static Stream<int, IterationIn<Epoch>> MakeStage(Stream<int, IterationIn<Epoch>> ingress, Stream<int, IterationIn<Epoch>> feedbackOutput, int iterations)
+        public static Stream<int, IterationIn<SourceEpoch>> MakeStage(Stream<int, IterationIn<SourceEpoch>> ingress, Stream<int, IterationIn<SourceEpoch>> feedbackOutput, int iterations)
         {
-            var stage = new Stage<Barrier, IterationIn<Epoch>>(ingress.Context, (i, s) => new Barrier(i, s, iterations), "Barrier");
+            var stage = new Stage<Barrier, IterationIn<SourceEpoch>>(ingress.Context, (i, s) => new Barrier(i, s, iterations), "Barrier");
             stage.NewInput(ingress, (message, vertex) => { }, null);
             stage.NewInput(feedbackOutput, (message, vertex) => { }, null);
             
             return stage.NewOutput<int>(vertex => vertex.Output);
         }
 
-        public Barrier(int index, Stage<IterationIn<Epoch>> vertex, int iterations)
+        public Barrier(int index, Stage<IterationIn<SourceEpoch>> vertex, int iterations)
             : base(index, vertex)
         {
-            this.NotifyAt(new IterationIn<Epoch>(new Epoch(0), 0));
+            this.NotifyAt(new IterationIn<SourceEpoch>(new SourceEpoch(0), 0));
             this.Iterations = iterations;
         }
 
-        public override void OnReceive(Message<int, IterationIn<Epoch>> message) { throw new NotImplementedException(); }
+        public override void OnReceive(Message<int, IterationIn<SourceEpoch>> message) { throw new NotImplementedException(); }
     }
 
 
@@ -79,7 +79,7 @@ namespace Microsoft.Research.Naiad.Examples.Latency
                 // first construct a simple graph with a feedback loop.
                 var inputStream = (new int[] { }).AsNaiadStream(computation);
 
-                var loopContext = new LoopContext<Epoch>(inputStream.Context, "loop");
+                var loopContext = new LoopContext<SourceEpoch>(inputStream.Context, "loop");
                 var feedback = loopContext.Delay<int>();
                 var ingress = loopContext.EnterLoop(inputStream);
 

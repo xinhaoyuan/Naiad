@@ -90,13 +90,13 @@ namespace Microsoft.Research.Naiad.Frameworks.DifferentialDataflow
         }
     }
 
-    internal class IncrementalCollection<R> : TypedCollection<R, Epoch>, InputCollection<R>
+    internal class IncrementalCollection<R> : TypedCollection<R, SourceEpoch>, InputCollection<R>
         where R : IEquatable<R>
     {
         private readonly Microsoft.Research.Naiad.Input.BatchedDataSource<Weighted<R>> inputVertex;
-        private readonly Stream<Weighted<R>, Epoch> stream;
+        private readonly Stream<Weighted<R>, SourceEpoch> stream;
 
-        public override Stream<Weighted<R>, Epoch> Output
+        public override Stream<Weighted<R>, SourceEpoch> Output
         {
             get { return this.stream; }
         }
@@ -121,7 +121,7 @@ namespace Microsoft.Research.Naiad.Frameworks.DifferentialDataflow
             inputVertex.OnNext(value);
         }
 
-        internal override Microsoft.Research.Naiad.Dataflow.TimeContext<Epoch> Statistics { get { return this.stream.Context; } }
+        internal override Microsoft.Research.Naiad.Dataflow.TimeContext<SourceEpoch> Statistics { get { return this.stream.Context; } }
 
         public IncrementalCollection(Microsoft.Research.Naiad.Computation manager)
         {
