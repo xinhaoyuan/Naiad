@@ -44,14 +44,18 @@ namespace Microsoft.Research.Naiad.Dataflow.Iteration
         {
             if (this.InitialIteration == null)
             {
-                var output = this.Output.GetBufferForTime(new IterationIn<T>(message.time, 0));
+                var time = new IterationIn<T>(message.time, 0);
+                var output = this.Output.GetBufferForTime(time);
                 for (int i = 0; i < message.length; i++)
                     output.Send(message.payload[i]);
             }
             else
             {
                 for (int i = 0; i < message.length; i++)
-                    this.Output.GetBufferForTime(new IterationIn<T>(message.time, InitialIteration(message.payload[i]))).Send(message.payload[i]);
+                {
+                    IterationIn<T> time = new IterationIn<T>(message.time, InitialIteration(message.payload[i]));
+                    this.Output.GetBufferForTime(time).Send(message.payload[i]);
+                }
             }
         }
 

@@ -173,9 +173,7 @@ namespace Microsoft.Research.Naiad.Examples.ConnectedComponents
                     {
                         this.Values[record.First] = record.Second;
                         this.Active.Add(record.First);
-                        Console.WriteLine("???a {0} {1}", record.First, message.time);
                         this.NotifyAt(time);
-                        Console.WriteLine("!!!");
                     }
                     // else update value and send if it changes
                     else
@@ -186,9 +184,7 @@ namespace Microsoft.Research.Naiad.Examples.ConnectedComponents
                         {
                             this.Values[record.First] = newValue;
                             this.Active.Add(record.First);
-                            Console.WriteLine("???b");
                             this.NotifyAt(time);
-                            Console.WriteLine("!!!");
                         }
                     }
                 }

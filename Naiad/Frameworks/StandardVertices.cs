@@ -214,7 +214,6 @@ namespace Microsoft.Research.Naiad.Dataflow
         /// <param name="message">The message.</param>
         public void Send(Message<TRecord, TTime> message)
         {
-            Console.WriteLine("!!!!!! Send at {0}", message.time);
             this.MustFlushChannels = true;
             for (int i = 0; i < this.sendChannels.Length; i++)
                 this.sendChannels[i].Send(message);
@@ -235,7 +234,7 @@ namespace Microsoft.Research.Naiad.Dataflow
                 buffer.SendBufferNoReallocate();
                 this.SpareBuffers.Enqueue(buffer);
             }
-
+            
             if (this.MustFlushChannels)
             {
                 this.MustFlushChannels = false;
@@ -251,6 +250,10 @@ namespace Microsoft.Research.Naiad.Dataflow
         /// <returns>A new per-time buffer.</returns>
         public VertexOutputBufferPerTime<TRecord, TTime> GetBufferForTime(TTime time)
         {
+            if (time.StructuralDepth > 0 & time.DataConcurrency == 0)
+            {
+                throw new Exception("WTF");
+            }
             if (!this.Buffers.ContainsKey(time))
             {
                 if (this.SpareBuffers.Count > 0)
@@ -263,7 +266,6 @@ namespace Microsoft.Research.Naiad.Dataflow
                 {
                     this.Buffers.Add(time, new VertexOutputBufferPerTime<TRecord, TTime>(this, time));
                 }
-
                 this.TimesToFlush.Enqueue(time);
             }
             return this.Buffers[time];
@@ -324,7 +326,6 @@ namespace Microsoft.Research.Naiad.Dataflow
 
                 this.Buffer = new Message<TRecord, TTime>();
                 this.Buffer.Allocate(AllocationReason.VertexOutputBuffer);
-                Console.WriteLine("this.Time = {0}", Time);
                 this.Buffer.time = this.Time;
 
                 parent.Send(temp);

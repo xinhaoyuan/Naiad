@@ -100,7 +100,7 @@ namespace Microsoft.Research.Naiad.Examples
                 }
                 else
                 {
-                    Logging.LogLevel = LoggingLevel.Debug;
+                    Logging.LogLevel = args.Contains("--verbose") ? LoggingLevel.Debug : LoggingLevel.Error;
                     Logging.LogStyle = LoggingStyle.Console;
 
                     examples[example].Execute(args);

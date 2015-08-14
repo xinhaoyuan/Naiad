@@ -585,7 +585,7 @@ namespace Microsoft.Research.Naiad.Dataflow
         /// The number of integer coordinates in timestamps of this type.
         /// </summary>
         public int StructuralDepth { get { return default(TTime).StructuralDepth + 1; } }
-        public int DataConcurrency { get { return default(TTime).DataConcurrency; } }
+        public int DataConcurrency { get { return DataTimestamp.Length; } }
         /// <summary>
         /// Populates a <see cref="Pointstamp"/> from this timestamp.
         /// </summary>
