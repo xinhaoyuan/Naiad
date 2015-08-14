@@ -25,11 +25,13 @@ using System.Text;
 using System.Diagnostics;
 using Microsoft.Research.Naiad.Serialization;
 using Microsoft.Research.Naiad.Runtime.Progress;
+using Microsoft.Research.Naiad.Diagnostics;
 
 namespace Microsoft.Research.Naiad
 {
     /// <summary>
-    /// Timestamp that represent structural information in the dataflow graph. It containsa a total order under could-result-in.
+    /// Timestamp that represent structural information in the dataflow graph. 
+    /// It contains a total order under could-result-in.
     /// </summary>
     public struct StructuralTimestamp
     {
@@ -85,13 +87,50 @@ namespace Microsoft.Research.Naiad
             set { items[index] = value; }
         }
         public int Length { get { return items.Length; } }
+        public int Iteration { get { return items[items.Length - 1]; } }
+        public StructuralTimestamp WithIteration(int v)
+        {
+            StructuralTimestamp sts = new StructuralTimestamp(items.Length);
+            for (int i = 0; i < items.Length - 1; ++i)
+                sts.items[i] = items[i];
+            sts.items[items.Length - 1] = v;
+            return sts;
+        }
+        public StructuralTimestamp WithIterationDelta(int d)
+        {
+            return WithIteration(items[items.Length - 1] + d);
+        }
+        public StructuralTimestamp RemoveIteration()
+        {
+            StructuralTimestamp sts = new StructuralTimestamp(items.Length - 1);
+            for (int i = 0; i < items.Length - 1; ++i)
+                sts.items[i] = items[i];
+            return sts;
+        }
+        public StructuralTimestamp AddIteration(int v)
+        {
+            StructuralTimestamp sts = new StructuralTimestamp(items.Length + 1);
+            for (int i = 0; i < items.Length; ++i)
+                sts.items[i] = items[i];
+            sts.items[items.Length] = v;
+            return sts;
+        }
         public IEnumerable<int> Enumerate()
         {
             return items.Enumerate();
         }
+        public StructuralTimestamp(int[] structTimestamp)
+        {
+            items = new Util.SArray<int>(structTimestamp.Length);
+            for (int i = 0; i < structTimestamp.Length; ++i)
+            {
+                items[i] = structTimestamp[i];
+            }
+        }
     }
     /// <summary>
-    /// Timestamp that represents external concurrency of data. It contains a vector clock with a partial order.
+    /// Timestamp that represents external concurrency of data.
+    /// It contains a vector clock with a partial order.
     /// </summary>
     public struct DataTimestamp
     {
@@ -105,19 +144,21 @@ namespace Microsoft.Research.Naiad
             int i, j = 0;
             for (i = 0; i < Length; ++i)
             {
-                while (items[i].Key != other.items[j].Key && j < other.Length)
+                while (j < other.Length && items[i].Key > other.items[j].Key)
                     ++j;
                 // Key mismatch
-                if (j == other.Length) return false;
-                if (items[i].Value > other.items[j].Value) return false;
-                ++j;
+                if (j == other.Length || items[i].Key < other.items[j].Key)
+                    return false;
+                // Key match
+                else if (items[i].Value > other.items[j].Value)
+                    return false;
             }
             return true;
         }
         public bool Equals(DataTimestamp other)
         {
-            if (Length != other.Length) return false;
-            for (int i = 0; i < Length; ++i)
+            if (items.Length != other.items.Length) return false;
+            for (int i = 0; i < items.Length; ++i)
             {
                 if (items[i].Key != other.items[i].Key) return false;
                 if (items[i].Value != other.items[i].Value) return false;
@@ -129,7 +170,7 @@ namespace Microsoft.Research.Naiad
             Dictionary<int, int> dict = Enumerate().ToDictionary(kv => kv.Key, kv => kv.Value);
             foreach (var ts in other.Enumerate())
             {
-                if (!dict.ContainsKey(ts.Key) || dict[ts.Key] < ts.Value)
+                if ((!dict.ContainsKey(ts.Key) || dict[ts.Key] < ts.Value))
                 {
                     dict[ts.Key] = ts.Value;
                 }
@@ -200,6 +241,19 @@ namespace Microsoft.Research.Naiad
         {
             return items.Enumerate();
         }
+        public DataTimestamp(int source, int epoch)
+        {
+            items = new Util.SArray<KeyValuePair<int, int>>(1);
+            items[0] = new KeyValuePair<int,int>(source, epoch);
+        }
+        public DataTimestamp(KeyValuePair<int, int>[] kvItems)
+        {
+            items = new Util.SArray<KeyValuePair<int, int>>(kvItems.Length);
+            for (int i = 0; i < kvItems.Length; ++i)
+            {
+                items[i] = kvItems[i];
+            }
+        }
     }
     /// <summary>
     /// Represents a logical timestamp in a timely dataflow computation. All messages in a
@@ -255,6 +309,7 @@ namespace Microsoft.Research.Naiad
         /// </summary>
         /// <param name="pointstamp">The <see cref="Pointstamp"/> to be populated.</param>
         void Populate(ref DataTimestamp dataTimstamp, ref StructuralTimestamp structTimestamp);
+        TTime InitializeFrom(DataTimestamp dataTimestamp, StructuralTimestamp structTimestamp);
     }
 }
 
@@ -289,14 +344,18 @@ namespace Microsoft.Research.Naiad.Dataflow
         /// The number of structural coordinates in timestamps of this type (i.e. zero).
         /// </summary>
         public int StructuralDepth { get { return 0; } }
+        /// <summary>
+        /// The number of data coordinates in timestamps of this type (i.e. zero).
+        /// </summary>
         public int DataConcurrency { get { return 0; } }
 
         /// <summary>
         /// Populates a <see cref="Pointstamp"/> with an empty timestamp.
         /// </summary>
-        /// <param name="pointstamp">The <see cref="Pointstamp"/> to be populated.</param>
-        /// <returns>The number of coordinates populated (i.e. zero).</returns>
+        /// <param name="dataTimestamp"></param>
+        /// <param name="structTimestamp"></param>
         public void Populate(ref DataTimestamp dataTimestamp, ref StructuralTimestamp structTimestamp) { }
+        public Empty InitializeFrom(DataTimestamp dataTimestamp, StructuralTimestamp structTimestamp) { return this;  }
 
         /// <summary>
         /// GetHashCode override
@@ -337,7 +396,7 @@ namespace Microsoft.Research.Naiad.Dataflow
         /// <summary>
         /// The vector clock sorted by source
         /// </summary>
-        public DataTimestamp dataTimestamp;
+        public DataTimestamp DataTimestamp;
 
         /// <summary>
         /// Returns <c>true</c> if and only if this epoch is less than or equal to the <paramref name="other"/>
@@ -347,7 +406,7 @@ namespace Microsoft.Research.Naiad.Dataflow
         /// <returns><c>true</c> if and only if <c>this</c> is less than or equal to <c>other</c>.</returns>
         public bool LessThan(Epoch other)
         {
-            return dataTimestamp.CouldResultIn(other.dataTimestamp);
+            return DataTimestamp.CouldResultIn(other.DataTimestamp);
         }
         
         /// <summary>
@@ -358,7 +417,7 @@ namespace Microsoft.Research.Naiad.Dataflow
         /// <returns><c>true</c> if and only if <c>this</c> is equal to <c>other</c>.</returns>
         public bool Equals(Epoch other)
         {
-            return dataTimestamp.Equals(other.dataTimestamp);
+            return DataTimestamp.Equals(other.DataTimestamp);
         }
 
         /// <summary>
@@ -380,7 +439,7 @@ namespace Microsoft.Research.Naiad.Dataflow
         /// <returns>The later of this and the <paramref name="other"/> epochs.</returns>
         public Epoch Join(Epoch other)
         {
-            return new Epoch(dataTimestamp.Join(other.dataTimestamp));
+            return new Epoch(DataTimestamp.Join(other.DataTimestamp));
         }
 
         /// <summary>
@@ -390,7 +449,7 @@ namespace Microsoft.Research.Naiad.Dataflow
         /// <returns>The earlier of this and the <paramref name="other"/> epochs.</returns>
         public Epoch Meet(Epoch other)
         {
-            return new Epoch(dataTimestamp.Meet(other.dataTimestamp));
+            return new Epoch(DataTimestamp.Meet(other.DataTimestamp));
         }
 
         /// <summary>
@@ -399,7 +458,7 @@ namespace Microsoft.Research.Naiad.Dataflow
         /// <returns>A string representation of this epoch.</returns>
         public override string ToString()
         {
-            return dataTimestamp.ToString();
+            return DataTimestamp.ToString();
         }
 
         /// <summary>
@@ -408,14 +467,17 @@ namespace Microsoft.Research.Naiad.Dataflow
         /// <returns>A hashcode for this epoch.</returns>
         public override int GetHashCode()
         {
-            return dataTimestamp.GetHashCode();
+            return DataTimestamp.GetHashCode();
         }
 
         /// <summary>
         /// The number of structural coordinates in timestamps of this type (i.e. zero).
         /// </summary>
         public int StructuralDepth { get { return 0; } }
-        public int DataConcurrency { get { return dataTimestamp.Length; } }
+        /// <summary>
+        /// The number of data coordinates in timestamps of this type
+        /// </summary>
+        public int DataConcurrency { get { return DataTimestamp.Length; } }
 
         /// <summary>
         /// Populates a <see cref="Pointstamp"/> from this epoch.
@@ -425,19 +487,32 @@ namespace Microsoft.Research.Naiad.Dataflow
         public void Populate(ref DataTimestamp dataTimestamp, ref StructuralTimestamp structTimestamp)
         {
             for (int i = 0; i < DataConcurrency; ++i)
-                dataTimestamp.items[i] = this.dataTimestamp.items[i];
+                dataTimestamp[i] = this.DataTimestamp[i];
+        }
+
+        public Epoch InitializeFrom(DataTimestamp dataTimestamp, StructuralTimestamp structTimestamp)
+        {
+            // XXX This may be not right
+            DataTimestamp = dataTimestamp;
+            return this;
         }
 
         public Epoch(KeyValuePair<int, int>[] dataTimestamp)
         {
-            this.dataTimestamp = new DataTimestamp(dataTimestamp.Length);
+            this.DataTimestamp = new DataTimestamp(dataTimestamp.Length);
             for (int i = 0; i < dataTimestamp.Length; ++i)
-                this.dataTimestamp.items[i] = dataTimestamp[i];
+                this.DataTimestamp[i] = dataTimestamp[i];
+        }
+
+        public Epoch(KeyValuePair<int, int> singleSourceTimestamp)
+        {
+            this.DataTimestamp = new DataTimestamp(1);
+            this.DataTimestamp[0] = singleSourceTimestamp;
         }
 
         public Epoch(DataTimestamp dataTimestamp)
         {
-            this.dataTimestamp = dataTimestamp;
+            this.DataTimestamp = dataTimestamp;
         }
     }
 
@@ -448,8 +523,8 @@ namespace Microsoft.Research.Naiad.Dataflow
     public struct IterationIn<TTime> : Time<IterationIn<TTime>>
         where TTime : Time<TTime>
     {
-        DataTimestamp dataTimestamp;
-        StructuralTimestamp structTimestamp;
+        public DataTimestamp DataTimestamp;
+        public StructuralTimestamp StructTimestamp;
 
         /// <summary>
         /// Compares this timestamp with the <paramref name="other"/> timestamp.
@@ -470,7 +545,7 @@ namespace Microsoft.Research.Naiad.Dataflow
         /// <returns><c>true</c> if and only if <c>this</c> is equal to <c>other</c>.</returns>
         public bool Equals(IterationIn<TTime> other)
         {
-            return dataTimestamp.Equals(other.dataTimestamp) && structTimestamp.Equals(other.structTimestamp);
+            return DataTimestamp.Equals(other.DataTimestamp) && StructTimestamp.Equals(other.StructTimestamp);
         }
 
         /// <summary>
@@ -494,7 +569,7 @@ namespace Microsoft.Research.Naiad.Dataflow
         /// <returns>A string representation of this timestamp.</returns>
         public override string ToString()
         {
-            return String.Format("[{0}, {1}]", dataTimestamp, structTimestamp);
+            return String.Format("[{0}, {1}]", DataTimestamp, StructTimestamp);
         }
 
         /// <summary>
@@ -503,14 +578,14 @@ namespace Microsoft.Research.Naiad.Dataflow
         /// <returns>A hashcode for this epoch.</returns>
         public override int GetHashCode()
         {
-            return dataTimestamp.GetHashCode() ^ structTimestamp.GetHashCode();
+            return DataTimestamp.GetHashCode() ^ StructTimestamp.GetHashCode();
         }
 
         /// <summary>
         /// The number of integer coordinates in timestamps of this type.
         /// </summary>
-        public int StructuralDepth { get { return structTimestamp.Length; } }
-        public int DataConcurrency { get { return dataTimestamp.Length; } }
+        public int StructuralDepth { get { return default(TTime).StructuralDepth + 1; } }
+        public int DataConcurrency { get { return default(TTime).DataConcurrency; } }
         /// <summary>
         /// Populates a <see cref="Pointstamp"/> from this timestamp.
         /// </summary>
@@ -519,9 +594,25 @@ namespace Microsoft.Research.Naiad.Dataflow
         public void Populate(ref DataTimestamp dataTimestamp, ref StructuralTimestamp structTimestamp)
         {
             for (int i = 0; i < dataTimestamp.Length; ++i)
-                dataTimestamp.items[i] = this.dataTimestamp.items[i];
+                dataTimestamp[i] = this.DataTimestamp[i];
             for (int i = 0; i < structTimestamp.Length; ++i)
-                structTimestamp.items[i] = this.structTimestamp.items[i];
+                structTimestamp[i] = this.StructTimestamp[i];
+        }
+
+
+        public IterationIn<TTime> InitializeFrom(DataTimestamp dataTimestamp, StructuralTimestamp structTimestamp)
+        {
+            DataTimestamp = dataTimestamp;
+            StructTimestamp = new StructuralTimestamp(StructuralDepth);
+            for (int i = 0; i < StructTimestamp.Length; ++i) {
+                StructTimestamp[i] = structTimestamp[i];
+            }
+            return this;
+        }
+
+        public TTime GetOuterTime()
+        {
+            return default(TTime).InitializeFrom(DataTimestamp, StructTimestamp);
         }
 
         /// <summary>
@@ -532,8 +623,8 @@ namespace Microsoft.Research.Naiad.Dataflow
         public IterationIn<TTime> Join(IterationIn<TTime> other)
         {
             return new IterationIn<TTime>(
-                dataTimestamp.Join(other.dataTimestamp), 
-                structTimestamp.Join(other.structTimestamp));
+                DataTimestamp.Join(other.DataTimestamp), 
+                StructTimestamp.Join(other.StructTimestamp));
         }
 
         /// <summary>
@@ -544,26 +635,26 @@ namespace Microsoft.Research.Naiad.Dataflow
         public IterationIn<TTime> Meet(IterationIn<TTime> other)
         {
             return new IterationIn<TTime>(
-                dataTimestamp.Meet(other.dataTimestamp),
-                structTimestamp.Meet(other.structTimestamp));
+                DataTimestamp.Meet(other.DataTimestamp),
+                StructTimestamp.Meet(other.StructTimestamp));
         }
 
         public IterationIn(DataTimestamp dataTimestamp, StructuralTimestamp structTimestamp) 
         {
-            this.dataTimestamp = new DataTimestamp(dataTimestamp.Length);
-            this.structTimestamp = new StructuralTimestamp(structTimestamp.Length);
+            this.DataTimestamp = new DataTimestamp(dataTimestamp.Length);
+            this.StructTimestamp = new StructuralTimestamp(structTimestamp.Length);
             for (int i = 0; i < dataTimestamp.Length; ++i)
-                this.dataTimestamp.items[i] = dataTimestamp.items[i];
+                this.DataTimestamp[i] = dataTimestamp[i];
             for (int i = 0; i < structTimestamp.Length; ++i)
-                this.structTimestamp.items[i] = structTimestamp.items[i];
+                this.StructTimestamp[i] = structTimestamp[i];
         }
 
         public IterationIn(TTime outTime, int iteration)
         {
-            dataTimestamp = new DataTimestamp(outTime.DataConcurrency);
-            structTimestamp = new StructuralTimestamp(outTime.StructuralDepth + 1);
-            outTime.Populate(ref dataTimestamp, ref structTimestamp);
-            structTimestamp.items[outTime.StructuralDepth] = iteration;
+            DataTimestamp = new DataTimestamp(outTime.DataConcurrency);
+            StructTimestamp = new StructuralTimestamp(outTime.StructuralDepth + 1);
+            outTime.Populate(ref DataTimestamp, ref StructTimestamp);
+            StructTimestamp[outTime.StructuralDepth] = iteration;
         }
     }
 }

@@ -62,13 +62,7 @@ namespace Microsoft.Research.Naiad.Runtime.Progress
         /// <returns>A hashcode for this pointstamp.</returns>
         public override int GetHashCode()
         {
-            var result = Location;
-            for (int i = 0; i < DataTimestamp.items.Length; ++i)
-                result += DataTimestamp.items[i].Key + DataTimestamp.items[i].Value;
-            for (int i = 0; i < StructTimestamp.items.Length; i++)
-                result += StructTimestamp.items[i];
-
-            return result;
+            return Location + DataTimestamp.GetHashCode() + StructTimestamp.GetHashCode();
         }
 
         /// <summary>
@@ -77,7 +71,7 @@ namespace Microsoft.Research.Naiad.Runtime.Progress
         /// <returns>A string representation of this pointstamp.</returns>
         public override string ToString()
         {
-            return String.Format("[location = {0}, data = <{1}>, struct= <{2}>]", Location, DataTimestamp.items, StructTimestamp.items);
+            return String.Format("[location = {0}, data = <{1}>, struct = <{2}>]", Location, DataTimestamp, StructTimestamp);
         }
 
         /// <summary>
@@ -89,24 +83,10 @@ namespace Microsoft.Research.Naiad.Runtime.Progress
         {
             if (this.Location != other.Location)
                 return false;
-
-            if (this.StructTimestamp.items.Length != other.StructTimestamp.items.Length)
+            if (!DataTimestamp.Equals(other.DataTimestamp))
                 return false;
-
-            for (int i = 0; i < this.StructTimestamp.items.Length; i++)
-                if (this.StructTimestamp.items[i] != other.StructTimestamp.items[i])
-                    return false;
-
-            if (this.DataTimestamp.items.Length != other.DataTimestamp.items.Length)
+            if (!StructTimestamp.Equals(other.StructTimestamp))
                 return false;
-
-            for (int i = 0; i < this.DataTimestamp.items.Length; i++)
-            {
-                if (this.DataTimestamp.items[i].Key != other.DataTimestamp.items[i].Key)
-                    return false;
-                if (this.DataTimestamp.items[i].Value != other.DataTimestamp.items[i].Value)
-                    return false;
-            }
 
             return true;
         }
@@ -132,10 +112,10 @@ namespace Microsoft.Research.Naiad.Runtime.Progress
             Location = location;
             DataTimestamp = new DataTimestamp(dataTimestamp.Length);
             for (int j = 0; j < dataTimestamp.Length; j++)
-                DataTimestamp.items[j] = dataTimestamp[j];
+                DataTimestamp[j] = dataTimestamp[j];
             StructTimestamp = new StructuralTimestamp(structTimestamp.Length);
             for (int j = 0; j < structTimestamp.Length; j++)
-                StructTimestamp.items[j] = structTimestamp[j];
+                StructTimestamp[j] = structTimestamp[j];
         }
 
         internal Pointstamp(int dataTimestampSize, int sturctTimestampSize)

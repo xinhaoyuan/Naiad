@@ -72,13 +72,6 @@
     <Compile Include="..\SharedAssemblyInfo.cs">
       <Link>Properties\SharedAssemblyInfo.cs</Link>
     </Compile>
-    <Compile Include="DifferentialDataflow\ConnectedComponents.cs" />
-    <Compile Include="DifferentialDataflow\GraphColoring.cs" />
-    <Compile Include="DifferentialDataflow\SearchIndex.cs" />
-    <Compile Include="DifferentialDataflow\StronglyConnectedComponents.cs" />
-    <Compile Include="DifferentialDataflow\WordCount.cs" />
-    <Compile Include="GraphLINQ\PageRank.cs" />
-    <Compile Include="GraphLINQ\Reachability.cs" />
     <Compile Include="Naiad\ConnectedComponents.cs" />
     <Compile Include="Naiad\KeyValueLookup.cs" />
     <Compile Include="Naiad\Latency.cs" />
@@ -91,10 +84,6 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Frameworks\GraphLINQ\GraphLINQ.csproj">
-      <Project>{bdbeaca4-1235-4fdc-bbf5-9f9b7ab553ad}</Project>
-      <Name>GraphLINQ</Name>
-    </ProjectReference>
     <ProjectReference Include="..\Frameworks\Lindi\Lindi.csproj">
       <Project>{bdc6546c-7ba0-472b-b260-0d596b6152e4}</Project>
       <Name>Lindi</Name>
@@ -102,10 +91,6 @@
     <ProjectReference Include="..\Naiad\Naiad.csproj">
       <Project>{a6221415-1283-4c04-8d2c-e25a857e1fe9}</Project>
       <Name>Naiad</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\Frameworks\DifferentialDataflow\DifferentialDataflow.csproj">
-      <Project>{a6bee749-a036-4a34-80cd-689c496d1a56}</Project>
-      <Name>DifferentialDataflow</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

@@ -41,7 +41,7 @@ namespace Microsoft.Research.Naiad.Examples.Throughput
 
         public override void OnNotify(Epoch time)
         {
-            var output = this.output.GetBufferForTime(new Epoch(0));
+            var output = this.output.GetBufferForTime(new Epoch(new DataTimestamp(0, 0)));
             for (int i = 0; i < this.numberToSend; ++i)
                 output.Send(this.VertexId.PairWith(i));
         }
@@ -51,7 +51,7 @@ namespace Microsoft.Research.Naiad.Examples.Throughput
         {
             this.numberToSend = numberToSend;
             this.output = new VertexOutputBuffer<Pair<int, int>, Epoch>(this);
-            this.NotifyAt(new Epoch(0));
+            this.NotifyAt(new Epoch(new DataTimestamp(0, 0)));
         }
 
         public static Stream<Pair<int, int>, Epoch> MakeStage(int numberToSend, int startProcess, int endProcess, int numberOfWorkers, Stream<Pair<int, int>, Epoch> input)
@@ -94,7 +94,7 @@ namespace Microsoft.Research.Naiad.Examples.Throughput
             : base(id, stage)
         {
             this.numberToConsume = numberToConsume;
-            this.NotifyAt(new Epoch(0));
+            this.NotifyAt(new Epoch(new DataTimestamp(0, 0)));
         }
 
         public static Stage<ConsumerVertex, Epoch> MakeStage(int numberToConsume, int startProcess, int endProcess, int numberOfWorkers, bool exchange, Stream<Pair<int, int>, Epoch> stream)

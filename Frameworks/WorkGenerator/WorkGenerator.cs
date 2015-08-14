@@ -253,19 +253,20 @@ namespace Microsoft.Research.Naiad.Frameworks.WorkGenerator
                 // look up the coordinator and live set for this time, and make new ones if they don't already exist
                 ICoordinator<TInput, TWorkDescription, TWorkerDescription> coordinator;
                 HashSet<int> liveWorkers;
-                if (this.coordinators.TryGetValue(message.time.outerTime, out coordinator))
+                TTime outerTime = message.time.GetOuterTime();
+                if (this.coordinators.TryGetValue(outerTime, out coordinator))
                 {
-                    liveWorkers = this.liveWorkersByTime[message.time.outerTime];
+                    liveWorkers = this.liveWorkersByTime[outerTime];
                 }
                 else
                 {
                     // make a new coordinator from the user-supplied factory and add it to the dictionary
-                    coordinator = this.coordinatorFactory(message.time.outerTime);
-                    this.coordinators[message.time.outerTime] = coordinator;
+                    coordinator = this.coordinatorFactory(outerTime);
+                    this.coordinators[outerTime] = coordinator;
 
                     // make an empty set of live workers and add it to the dictionary
                     liveWorkers = new HashSet<int>();
-                    this.liveWorkersByTime[message.time.outerTime] = liveWorkers;
+                    this.liveWorkersByTime[outerTime] = liveWorkers;
                     // If there are multiple workers, and the coordinator is situated on the same thread as one
                     // of the workers, then liveWorkers is initialized to contain that VertexId, so that the worker
                     // on the coordinator's thread will never receive any work. This is because work items may take
@@ -286,7 +287,11 @@ namespace Microsoft.Research.Naiad.Frameworks.WorkGenerator
 
                     // add a notification to ensure the coordinator gets discarded when work is finished for
                     // this time
-                    this.NotifyAt(new IterationIn<TTime> { outerTime = message.time.outerTime, iteration = Int32.MaxValue - 1 });
+                    StructuralTimestamp sts = new StructuralTimestamp(message.time.StructTimestamp.Length);
+                    for (int i = 0; i < sts.Length; ++i)
+                        sts[i] = message.time.StructTimestamp[i];
+                    sts[sts.Length - 1] = Int32.MaxValue - 1;
+                    this.NotifyAt(new IterationIn<TTime>(message.time.DataTimestamp, sts));
                 }
 
                 // for each input record in the message, tell the coordinator to turn it into the requisite batch of work items
@@ -318,8 +323,9 @@ namespace Microsoft.Research.Naiad.Frameworks.WorkGenerator
                 // there must already be a coordinator and live worker set for this time, since there won't be
                 // any messages returned from a worker about the time until it has been initialized by us receiving
                 // an input above at that time
-                ICoordinator<TInput, TWorkDescription, TWorkerDescription> coordinator = this.coordinators[message.time.outerTime];
-                HashSet<int> liveWorkers = this.liveWorkersByTime[message.time.outerTime];
+                TTime outerTime = message.time.GetOuterTime();
+                ICoordinator<TInput, TWorkDescription, TWorkerDescription> coordinator = this.coordinators[outerTime];
+                HashSet<int> liveWorkers = this.liveWorkersByTime[outerTime];
 
                 // get a buffer to write outputs into
                 var buffer = this.Output.GetBufferForTime(message.time);
@@ -360,8 +366,9 @@ namespace Microsoft.Research.Naiad.Frameworks.WorkGenerator
             {
                 // we aren't going to see any more inputs or work items for this outer time, so discard the state
                 // we are keeping for it
-                this.coordinators.Remove(time.outerTime);
-                this.liveWorkersByTime.Remove(time.outerTime);
+                TTime outerTime = time.GetOuterTime();
+                this.coordinators.Remove(outerTime);
+                this.liveWorkersByTime.Remove(outerTime);
             }
             #endregion
 
@@ -440,14 +447,19 @@ namespace Microsoft.Research.Naiad.Frameworks.WorkGenerator
                 }
 
                 IWorker<TWorkDescription, TWorkerDescription, TOutput> worker;
-                if (!this.workers.TryGetValue(message.time.outerTime, out worker))
+                TTime outerTime = message.time.GetOuterTime();
+                if (!this.workers.TryGetValue(outerTime, out worker))
                 {
                     // we haven't seen this time before. Generate a new worker from the factory, add it to the
                     // dictionary, and request a notification to be able to garbage collect it when all the work
                     // for this time is complete
-                    worker = this.workerFactory(message.time.outerTime);
-                    this.workers.Add(message.time.outerTime, worker);
-                    this.NotifyAt(new IterationIn<TTime> { outerTime = message.time.outerTime, iteration = Int32.MaxValue - 1 });
+                    worker = this.workerFactory(outerTime);
+                    this.workers.Add(outerTime, worker);
+                    StructuralTimestamp sts = new StructuralTimestamp(message.time.StructTimestamp.Length);
+                    for (int i = 0; i < sts.Length; ++i)
+                        sts[i] = message.time.StructTimestamp[i];
+                    sts[sts.Length - 1] = Int32.MaxValue - 1;
+                    this.NotifyAt(new IterationIn<TTime>(message.time.DataTimestamp, sts));
                 }
 
                 // get the buffer to forward the output records to
@@ -491,7 +503,7 @@ namespace Microsoft.Research.Naiad.Frameworks.WorkGenerator
             public override void OnNotify(IterationIn<TTime> time)
             {
                 // discard the worker we were using for this time
-                this.workers.Remove(time.outerTime);
+                this.workers.Remove(time.GetOuterTime());
             }
             #endregion
 

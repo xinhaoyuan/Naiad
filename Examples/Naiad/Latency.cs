@@ -42,8 +42,8 @@ namespace Microsoft.Research.Naiad.Examples.Latency
         // Send round-robin to destinations to try and get better network utilization
         public override void OnNotify(IterationIn<Epoch> time)
         {
-            if (time.iteration < this.Iterations)
-                this.NotifyAt(new IterationIn<Epoch>(time.outerTime, time.iteration + 1));
+            if (time.StructTimestamp.Iteration < this.Iterations)
+                this.NotifyAt(new IterationIn<Epoch>(time.DataTimestamp, time.StructTimestamp.WithIterationDelta(1)));
         }
 
         public static Stream<int, IterationIn<Epoch>> MakeStage(Stream<int, IterationIn<Epoch>> ingress, Stream<int, IterationIn<Epoch>> feedbackOutput, int iterations)
@@ -58,7 +58,7 @@ namespace Microsoft.Research.Naiad.Examples.Latency
         public Barrier(int index, Stage<IterationIn<Epoch>> vertex, int iterations)
             : base(index, vertex)
         {
-            this.NotifyAt(new IterationIn<Epoch>(new Epoch(0), 0));
+            this.NotifyAt(new IterationIn<Epoch>(new Epoch(new DataTimestamp(0, 0)), 0));
             this.Iterations = iterations;
         }
 

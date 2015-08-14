@@ -26,6 +26,7 @@ using Microsoft.Research.Naiad.Dataflow.Channels;
 using Microsoft.Research.Naiad.Serialization;
 using Microsoft.Research.Naiad.DataStructures;
 using Microsoft.Research.Naiad.Scheduling;
+using Microsoft.Research.Naiad.Diagnostics;
 
 namespace Microsoft.Research.Naiad.Runtime.Progress
 {
@@ -45,6 +46,7 @@ namespace Microsoft.Research.Naiad.Runtime.Progress
         {
             var oldFrontier = Frontier;
             var count = 0L;
+            Logging.Debug("UpdatePointstampCount: {0}", String.Join(";", Counts));
             if (!Counts.TryGetValue(version, out count))
             {
                 version = new Pointstamp(version);
@@ -52,16 +54,26 @@ namespace Microsoft.Research.Naiad.Runtime.Progress
                 Counts.Add(version, delta);
 
                 // Potentially add this version to the frontier
+                Logging.Debug("Try to add {0}({1}, {2})", version, version.GetHashCode(), version.DataTimestamp.GetHashCode());
                 if (actualFrontier.Add(version))
                     Frontier = actualFrontier.Antichain.ToArray();
+                else
+                {
+                    Logging.Debug("Try to add {0} failed", version);
+                }
             }
             else
             {
                 if (count + delta == 0)
                 {
                     Counts.Remove(version);
+                    Logging.Debug("Try to remove {0} ({1} + {2})", version, count, delta);
                     if (actualFrontier.Remove(version))
                         Frontier = actualFrontier.Antichain.ToArray();
+                    else
+                    {
+                        Logging.Debug("Try to remove {0} failed", version);
+                    }
                 }
                 else
                 {

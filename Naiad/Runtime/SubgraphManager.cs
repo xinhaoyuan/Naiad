@@ -111,7 +111,7 @@ namespace Microsoft.Research.Naiad
 
         public event EventHandler OnShutdown { add { this.computation.OnShutdown += value; } remove { this.computation.OnShutdown -= value; } }
 
-        public void Sync(int epoch)
+        public void Sync(DataTimestamp epoch)
         {
             this.computation.Sync(epoch);
         }
@@ -207,7 +207,7 @@ namespace Microsoft.Research.Naiad
         /// </example>
         /// <seealso cref="Input.BatchedDataSource{TRecord}"/>
         /// <seealso cref="Subscription.Sync"/>
-        void Sync(int epoch);
+        void Sync(DataTimestamp epoch);
 
         /// <summary>
         /// Blocks until all computation in this graph has termintaed.
@@ -563,9 +563,15 @@ namespace Microsoft.Research.Naiad
                     foreach (var input in this.streamingInputs)
                         input.Join();
 
-                    var largestRealInputEpoch = this.inputs.Max(x => x.CurrentEpoch);
+                    DataTimestamp largestRealInputEpoch = new DataTimestamp(0);
+                    foreach (var input in this.inputs)
+                        largestRealInputEpoch = largestRealInputEpoch.Join(new DataTimestamp(input.InputId, input.CurrentEpoch));
+
                     Logging.Info("Largest real epoch " + largestRealInputEpoch + " current stats " + RootDomainStatisticsStage.CurrentEpoch);
-                    while (this.RootDomainStatisticsStage.CurrentEpoch < largestRealInputEpoch)
+                    // ???
+#if false
+                    while (new DataTimestamp(this.RootDomainStatisticsStage.InputId, this.RootDomainStatisticsStage.CurrentEpoch)
+                                .CouldResultIn(largestRealInputEpoch))
                     {
                         this.RootDomainStatisticsStage.OnNext(new string[] { });
                     }
@@ -576,6 +582,7 @@ namespace Microsoft.Research.Naiad
                         Logging.Info("Syncing stats " + (largestRealInputEpoch - 1));
                         this.Sync(largestRealInputEpoch - 1);
                     }
+#endif
                     // now shut down the reporting
                     Console.WriteLine("Calling reporting completed");
                     this.RootDomainStatisticsStage.OnCompleted();
@@ -633,11 +640,11 @@ namespace Microsoft.Research.Naiad
         /// Blocks until all computation associated with the supplied epoch have been retired.
         /// </summary>
         /// <param name="epoch">Epoch to wait for</param>
-        public void Sync(int epoch)
+        public void Sync(DataTimestamp epoch)
         {
             foreach (Dataflow.InputStage input in this.inputs)
             {
-                if (!input.IsCompleted && input.CurrentEpoch <= epoch)
+                if (!input.IsCompleted && new DataTimestamp(input.InputId, input.CurrentEpoch).CouldResultIn(epoch))
                 {
                     Logging.Debug("Syncing at epoch ({0}) in the future of {1}.", epoch, input);
                 }

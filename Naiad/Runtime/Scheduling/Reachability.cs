@@ -55,7 +55,7 @@ namespace Microsoft.Research.Naiad.Runtime.Progress
                 var increment = depth < 0;
                 depth = Math.Abs(depth);
 
-                for (int i = 1; i < depth; i++)
+                for (int i = 0; i < depth; i++)
                 {
                     if (a.StructTimestamp[i] > b.StructTimestamp[i])
                         return false;
@@ -221,7 +221,10 @@ namespace Microsoft.Research.Naiad.Runtime.Progress
             {
                 var reachable = new List<int>(this.Graph.Length);
 
-                var versionList = new Pointstamp[] { new Pointstamp(i, Enumerable.Repeat(magicNumber, this.Graph[i].Depth).ToArray()) };
+                var versionList = new Pointstamp[] {
+                    new Pointstamp(i,
+                        new KeyValuePair<int, int>[] { }, 
+                        Enumerable.Repeat(magicNumber, this.Graph[i].Depth).ToArray()) };
 
                 var reachabilityResults = this.DetermineReachabilityList(versionList);
 
@@ -236,12 +239,12 @@ namespace Microsoft.Research.Naiad.Runtime.Progress
                     {
                         for (int k = 0; k < reachabilityResults[j].Count; k++)
                         {
-                            for (int l = 0; l < reachabilityResults[j][k].Timestamp.Length && reachabilityResults[j][k].Timestamp[l] >= magicNumber; l++)
+                            for (int l = 0; l < reachabilityResults[j][k].StructTimestamp.Length && reachabilityResults[j][k].StructTimestamp[l] >= magicNumber; l++)
                             {
                                 if (l + 1 > depth || l + 1 == depth && increment)
                                 {
                                     depth = l + 1;
-                                    increment = (reachabilityResults[j][k].Timestamp[l] > magicNumber);
+                                    increment = (reachabilityResults[j][k].StructTimestamp[l] > magicNumber);
                                 }
                             }
                         }
@@ -380,15 +383,15 @@ namespace Microsoft.Research.Naiad.Runtime.Progress
 
                                 // If the target is a feedback stage, we must increment the last coordinate.
                                 if (this.Graph[target].Advance)
-                                    localtime.Timestamp[localtime.Timestamp.Length - 1]++;
+                                    localtime.StructTimestamp[this.Graph[target].Depth - 1]++;
 
                                 // If the target is an egress stage, we must strip off the last coordinate.
                                 if (this.Graph[target].Egress)
                                 {
-                                    localtime.Timestamp.Length--;
-                                    localtime.Timestamp[localtime.Timestamp.Length] = 0;
+                                    localtime.StructTimestamp[this.Graph[target].Depth - 1] = 0;
                                 }
 
+#if false
                                 // If the target is an ingress stage, we must add a new coordinate.
                                 if (this.Graph[target].Ingress)
                                 {
@@ -397,6 +400,7 @@ namespace Microsoft.Research.Naiad.Runtime.Progress
 
                                 if (localtime.Timestamp.Length != this.Graph[target].Depth)
                                     throw new Exception("Something is horribly wrong in Reachability");
+#endif
 
                                 // If the computed minimal time for the downstream collection becomes a member of its antichain, we have updated it
                                 // (and must search forward from that collection).
@@ -439,17 +443,13 @@ namespace Microsoft.Research.Naiad.Runtime.Progress
         // for now, this only works if a and b correspond to the same stage. 
         public bool ProductOrderLessThan(Pointstamp a, Pointstamp b)
         {
-            if (a.Timestamp.Length != b.Timestamp.Length)
+            if (a.StructTimestamp.Length != b.StructTimestamp.Length)
                 Console.WriteLine("should have same length!");
 
             if (a.Location != b.Location)
                 Console.WriteLine("meant to be called on pointstamps of the same stage");
 
-            for (int i = 0; i < a.Timestamp.Length; i++)
-                if (a.Timestamp[i] > b.Timestamp[i])
-                    return false;
-
-            return true;
+            return a.StructTimestamp.CouldResultIn(b.StructTimestamp);
         }
     }
 }

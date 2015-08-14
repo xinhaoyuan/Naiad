@@ -79,7 +79,7 @@ namespace Microsoft.Research.Naiad.Util
         public SArray(int size)
         {
             Length = size;
-            a = b = c = d = 0;
+            a = b = c = d = default(T);
             if (Length > 4)
                 spillover = new T[Length - 4];
             else

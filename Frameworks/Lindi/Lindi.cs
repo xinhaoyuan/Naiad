@@ -1188,7 +1188,7 @@ namespace Microsoft.Research.Naiad.Frameworks.Lindi
         {
             if (!this.writers.ContainsKey(message.time))
             {
-                var filename = String.Format(this.format, this.VertexId, message.time.epoch);
+                var filename = String.Format(this.format, this.VertexId, message.time.DataTimestamp);
                 if (System.IO.File.Exists(filename))
                     System.IO.File.Delete(filename);
 

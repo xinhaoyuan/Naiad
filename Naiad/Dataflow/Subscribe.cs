@@ -28,6 +28,7 @@ using Microsoft.Research.Naiad.Runtime.Controlling;
 using Microsoft.Research.Naiad.Scheduling;
 using Microsoft.Research.Naiad.Dataflow;
 using Microsoft.Research.Naiad.Dataflow.StandardVertices;
+using Microsoft.Research.Naiad.Diagnostics;
 
 
 namespace Microsoft.Research.Naiad
@@ -49,7 +50,7 @@ namespace Microsoft.Research.Naiad
         /// </remarks>
         /// <seealso cref="Computation.Sync"/>
         /// <seealso cref="Computation.Join"/>
-        void Sync(int time);
+        void Sync(DataTimestamp time);
     }
 
     /// <summary>
@@ -99,7 +100,7 @@ namespace Microsoft.Research.Naiad
         /// <param name="stream">input stream</param>
         /// <param name="action">callback on worker id, epoch id, and records</param>
         /// <returns>subscription for synchronization</returns>
-        public static Subscription Subscribe<R>(this Stream<R, Epoch> stream, Action<int, int, IEnumerable<R>> action)
+        public static Subscription Subscribe<R>(this Stream<R, Epoch> stream, Action<int, Epoch, IEnumerable<R>> action)
         {
             return new Subscription<R>(stream, stream.ForStage.Placement, stream.Context, action);
         }
@@ -127,10 +128,10 @@ namespace Microsoft.Research.Naiad.Dataflow
     /// </summary>
     internal class Subscription<R> : IDisposable, Subscription
     {
-        private readonly Dictionary<int, CountdownEvent> Countdowns;        
+        private readonly Dictionary<DataTimestamp, CountdownEvent> Countdowns;        
         private int LocalVertexCount;
 
-        private int CompleteThrough;
+        private DataTimestamp CompleteThrough;
 
         private bool disposed = false;
         internal bool Disposed { get { return this.disposed; } }
@@ -152,19 +153,19 @@ namespace Microsoft.Research.Naiad.Dataflow
             lock (this.Countdowns)
             {
                 // if this is the first mention of time.t, create a new countdown
-                if (!this.Countdowns.ContainsKey(time.epoch))
-                    this.Countdowns[time.epoch] = new CountdownEvent(this.LocalVertexCount);
+                if (!this.Countdowns.ContainsKey(time.DataTimestamp))
+                    this.Countdowns[time.DataTimestamp] = new CountdownEvent(this.LocalVertexCount);
 
-                if (this.Countdowns[time.epoch].CurrentCount > 0)
-                    this.Countdowns[time.epoch].Signal();
+                if (this.Countdowns[time.DataTimestamp].CurrentCount > 0)
+                    this.Countdowns[time.DataTimestamp].Signal();
                 else
-                    Console.Error.WriteLine("Too many Signal({0})", time.epoch);
+                    Console.Error.WriteLine("Too many Signal({0})", time.DataTimestamp);
 
                 // if the last signal, clean up a bit
-                if (this.Countdowns[time.epoch].CurrentCount == 0)
+                if (this.Countdowns[time.DataTimestamp].CurrentCount == 0)
                 {
-                    this.CompleteThrough = time.epoch; // bump completethrough int
-                    this.Countdowns.Remove(time.epoch); // remove countdown object
+                    this.CompleteThrough = time.DataTimestamp.Meet(CompleteThrough); // bump completethrough int
+                    this.Countdowns.Remove(time.DataTimestamp); // remove countdown object
                 }
             }
         }
@@ -172,21 +173,21 @@ namespace Microsoft.Research.Naiad.Dataflow
         /// <summary>
         /// Blocks the caller until this subscription has completed the given epoch.
         /// </summary>
-        /// <param name="epoch">Time to wait until locally complete</param>
-        public void Sync(int epoch)
+        /// <param name="dataTimestamp">Time to wait until locally complete</param>
+        public void Sync(DataTimestamp dataTimestamp)
         {
             CountdownEvent countdown;
             lock (this.Countdowns)
             {
                 // if we have already completed it, don't wait
-                if (epoch <= this.CompleteThrough)
+                if (dataTimestamp.CouldResultIn(this.CompleteThrough))
                     return;
 
                 // if we haven't heard about it, create a new countdown
-                if (!this.Countdowns.ContainsKey(epoch))
-                    this.Countdowns[epoch] = new CountdownEvent(this.LocalVertexCount);
+                if (!this.Countdowns.ContainsKey(dataTimestamp))
+                    this.Countdowns[dataTimestamp] = new CountdownEvent(this.LocalVertexCount);
 
-                countdown = this.Countdowns[epoch];
+                countdown = this.Countdowns[dataTimestamp];
             }
 
             // having released the lock, wait.
@@ -199,12 +200,12 @@ namespace Microsoft.Research.Naiad.Dataflow
                 if (entry.ProcessId == context.Context.Manager.InternalComputation.Controller.Configuration.ProcessID)
                     this.LocalVertexCount++;
 
-            var stage = new Stage<SubscribeStreamingVertex<R>, Epoch>(placement, context, Stage.OperatorType.Default, (i, v) => new SubscribeStreamingVertex<R>(i, v, this, onRecv, onNotify, onComplete), "Subscribe");
+            var stage = new Stage<SubscribeStreamingVertex<R>, Epoch>(placement, context, Stage.OperatorType.Default, (i, v) => new SubscribeStreamingVertex<R>(i, v, this, onRecv, onNotify, onComplete), "SubscribeStreaming");
 
             stage.NewInput(input, (message, vertex) => vertex.OnReceive(message), null);
 
-            this.Countdowns = new Dictionary<int, CountdownEvent>();
-            this.CompleteThrough = -1;
+            this.Countdowns = new Dictionary<DataTimestamp, CountdownEvent>();
+            this.CompleteThrough = new DataTimestamp(0);
 
             // important for reachability to be defined for the next test
             stage.InternalComputation.Reachability.UpdateReachabilityPartialOrder(stage.InternalComputation);
@@ -216,18 +217,18 @@ namespace Microsoft.Research.Naiad.Dataflow
             stage.InternalComputation.Register(this);
         }
 
-        internal Subscription(Stream<R, Epoch> input, Placement placement, TimeContext<Epoch> context, Action<int, int, IEnumerable<R>> action)
+        internal Subscription(Stream<R, Epoch> input, Placement placement, TimeContext<Epoch> context, Action<int, Epoch, IEnumerable<R>> action)
         {
             foreach (var entry in placement)
                 if (entry.ProcessId == context.Context.Manager.InternalComputation.Controller.Configuration.ProcessID)
                     this.LocalVertexCount++;
 
-            var stage = new Stage<SubscribeBufferingVertex<R>, Epoch>(placement, context, Stage.OperatorType.Default, (i, v) => new SubscribeBufferingVertex<R>(i, v, this, action), "Subscribe");
+            var stage = new Stage<SubscribeBufferingVertex<R>, Epoch>(placement, context, Stage.OperatorType.Default, (i, v) => new SubscribeBufferingVertex<R>(i, v, this, action), "SubscribeBuffering");
 
             stage.NewInput(input, (message, vertex) => vertex.OnReceive(message), null);
 
-            this.Countdowns = new Dictionary<int, CountdownEvent>();
-            this.CompleteThrough = -1;
+            this.Countdowns = new Dictionary<DataTimestamp, CountdownEvent>();
+            this.CompleteThrough = new DataTimestamp(0);
 
             // important for reachability to be defined for the next test
             stage.InternalComputation.Reachability.UpdateReachabilityPartialOrder(stage.InternalComputation);
@@ -252,6 +253,8 @@ namespace Microsoft.Research.Naiad.Dataflow
 
         Subscription<R> Parent;
 
+        DataTimestamp completeThrough;
+
         protected override void OnShutdown()
         {
             this.OnCompleted(this.Scheduler.Index);
@@ -270,19 +273,30 @@ namespace Microsoft.Research.Naiad.Dataflow
         /// <param name="time"></param>
         public override void OnNotify(Epoch time)
         {
+            if (time.DataTimestamp.CouldResultIn(completeThrough))
+            {
+                Logging.Progress("???");
+                return;
+            }
+
             // test to see if inputs supplied data for this epoch, or terminated instead
-            var validEpoch = false;
-            for (int i = 0; i < this.Parent.SourceInputs.Length; i++)
-                if (this.Parent.SourceInputs[i].MaximumValidEpoch >= time.epoch)
-                    validEpoch = true;
+            List<KeyValuePair<int, int>> maxEpochList = new List<KeyValuePair<int, int>>();
+            foreach (var input in this.Parent.SourceInputs.OrderByDescending(i => i.InputId))
+                maxEpochList.Add(new KeyValuePair<int, int>(input.InputId, input.MaximumValidEpoch));
+            var maxEpoch = new DataTimestamp(maxEpochList.ToArray());
+            var validEpoch = time.DataTimestamp.CouldResultIn(maxEpoch);
             
             if (validEpoch)
                 this.OnNotifyAction(time, this.Scheduler.Index);
 
             this.Parent.Signal(time);
-
+            
             if (!this.Parent.Disposed && validEpoch)
-                this.NotifyAt(new Epoch(time.epoch + 1));         
+            {
+                // we actually want to be notified for <anytime could result from [time]>.
+                completeThrough = completeThrough.Meet(time.DataTimestamp);
+                this.NotifyAt(new Epoch(completeThrough));
+            }
         }
 
         public SubscribeStreamingVertex(int index, Stage<Epoch> stage, Subscription<R> parent, Action<Message<R, Epoch>, int> onrecv, Action<Epoch, int> onnotify, Action<int> oncomplete)
@@ -293,8 +307,8 @@ namespace Microsoft.Research.Naiad.Dataflow
             this.OnRecv = onrecv;
             this.OnNotifyAction = onnotify;
             this.OnCompleted = oncomplete;
-
-            this.NotifyAt(new Epoch(0));
+            this.completeThrough = new DataTimestamp(0);
+            this.NotifyAt(new Epoch(completeThrough));
         }
     }
 
@@ -304,36 +318,60 @@ namespace Microsoft.Research.Naiad.Dataflow
     /// <typeparam name="R">Record type</typeparam>
     internal class SubscribeBufferingVertex<R> : SinkBufferingVertex<R, Epoch>
     {
-        Action<int, int, IEnumerable<R>> Action;        // (vertexid, epoch, data) => ()
+        Action<int, Epoch, IEnumerable<R>> Action;        // (vertexid, epoch, data) => ()
         Subscription<R> Parent;
-        
+        DataTimestamp completeThrough;
+
+        /// <summary>
+        /// Called when a message is received.
+        /// </summary>
+        /// <param name="message">The message.</param>
+        public override void OnReceive(Message<R, Epoch> message)
+        {
+            Logging.Debug("get message {0} at {1}", message.payload, message.time);
+            this.Input.OnReceive(message, new ReturnAddress());
+            Logging.Debug("got message {0} at {1}", message.payload, message.time);
+            //if (!message.time.DataTimestamp.CouldResultIn(completeThrough))
+            //{
+            //    completeThrough = completeThrough.Meet(message.time.DataTimestamp);
+            //    this.NotifyAt(new Epoch(completeThrough.Meet(message.time.DataTimestamp)));
+            //}
+        }
+
         /// <summary>
         /// When a time completes, invokes an action on received data, signals parent stage, and schedules OnNotify for next expoch.
         /// </summary>
         /// <param name="time"></param>
         public override void OnNotify(Epoch time)
         {
-            var validEpoch = false;
-            for (int i = 0; i < this.Parent.SourceInputs.Length; i++)
-                if (this.Parent.SourceInputs[i].MaximumValidEpoch >= time.epoch)
-                    validEpoch = true;
+            List<KeyValuePair<int, int>> maxEpochList = new List<KeyValuePair<int, int>>();
+            foreach (var input in this.Parent.SourceInputs.OrderByDescending(i => i.InputId))
+                maxEpochList.Add(new KeyValuePair<int, int>(input.InputId, input.MaximumValidEpoch));
+            Logging.Debug("?????? {0} {1}", this.Parent.SourceInputs.Length, String.Join(";", maxEpochList));
+            var maxEpoch = new DataTimestamp(maxEpochList.ToArray());
+            var validEpoch = time.DataTimestamp.CouldResultIn(maxEpoch);
 
             if (validEpoch)
-                Action(this.VertexId, time.epoch, Input.GetRecordsAt(time));
+            {
+                Logging.Debug("valid epoch {0}, maxEpoch = {1}", time.DataTimestamp, maxEpoch);
+                Action(this.VertexId, time, Input.GetRecordsAt(time));
+            }
+            else
+            {
+                Logging.Debug("invalid epoch {0}, maxEpoch = {1}", time.DataTimestamp, maxEpoch);
+            }
             
             this.Parent.Signal(time);
-
-            if (!this.Parent.Disposed && validEpoch)
-                this.NotifyAt(new Epoch(time.epoch + 1));
         }
 
-        public SubscribeBufferingVertex(int index, Stage<Epoch> stage, Subscription<R> parent, Action<int, int, IEnumerable<R>> action)
+        public SubscribeBufferingVertex(int index, Stage<Epoch> stage, Subscription<R> parent, Action<int, Epoch, IEnumerable<R>> action)
             : base(index, stage, null)
         {
             this.Parent = parent;
             this.Action = action;
             this.Input = new VertexInputBuffer<R, Epoch>(this);
-            this.NotifyAt(new Epoch(0));
+            this.completeThrough = new DataTimestamp(0);
+            // this.NotifyAt(new Epoch(completeThrough));
         }
     }
 }

@@ -852,7 +852,7 @@ namespace Microsoft.Research.Naiad
         /// Blocks until all computation associated with the supplied epoch have been retired.
         /// </summary>
         /// <param name="epoch">Epoch to wait for</param>
-        public void Sync(int epoch)
+        public void Sync(DataTimestamp epoch)
         {
             foreach (var manager in this.baseComputations)
                 manager.Sync(epoch);

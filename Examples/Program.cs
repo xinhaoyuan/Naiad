@@ -66,7 +66,7 @@ namespace Microsoft.Research.Naiad.Examples
             // two examples capable of stressing Naiad's performance
             examples.Add("benchmark-throughput", new Throughput.Throughput());
             examples.Add("benchmark-latency", new Latency.Latency());
-
+#if false
             // some differential dataflow examples
             examples.Add("dd-stronglyconnectedcomponents", new DifferentialDataflow.SCC());
             examples.Add("dd-connectedcomponents", new DifferentialDataflow.ConnectedComponents());
@@ -77,6 +77,7 @@ namespace Microsoft.Research.Naiad.Examples
             // some GraphLINQ examples
             examples.Add("graphlinq-reachability", new Examples.GraphLINQ.Reachability());
             examples.Add("graphlinq-pagerank", new Examples.GraphLINQ.PageRank());
+#endif
 
             // determine which exmample was asked for
             if (args.Length == 0 || !examples.ContainsKey(args[0].ToLower()))
@@ -99,7 +100,7 @@ namespace Microsoft.Research.Naiad.Examples
                 }
                 else
                 {
-                    Logging.LogLevel = LoggingLevel.Error;
+                    Logging.LogLevel = LoggingLevel.Debug;
                     Logging.LogStyle = LoggingStyle.Console;
 
                     examples[example].Execute(args);

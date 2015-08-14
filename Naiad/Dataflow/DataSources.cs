@@ -163,6 +163,7 @@ namespace Microsoft.Research.Naiad.Input
 
             lock (this)
             {
+                // XXX currentBuffer out of bound?
                 foreach (var element in this.contents)
                 {
                     currentBuffer[currentCursor++] = element;
@@ -224,7 +225,8 @@ namespace Microsoft.Research.Naiad.Input
             }
         }
     }
-    
+
+#if false
     #region Inter-graph data source
 
     /// <summary>
@@ -249,9 +251,9 @@ namespace Microsoft.Research.Naiad.Input
         /// <param name="message">message</param>
         /// <param name="epoch">epoch</param>
         /// <param name="fromWorker">worker</param>
-        public void OnRecv(TRecord[] message, int epoch, int fromWorker)
+        public void OnRecv(TRecord[] message, DataTimestamp dataTimestamp, int fromWorker)
         {
-            this.inputsByWorker[fromWorker].OnStreamingRecv(message, epoch);
+            // this.inputsByWorker[fromWorker].OnStreamingRecv(message, dataTimestamp);
         }
 
         /// <summary>
@@ -259,9 +261,10 @@ namespace Microsoft.Research.Naiad.Input
         /// </summary>
         /// <param name="epoch">epoch</param>
         /// <param name="fromWorker">worker</param>
-        public void OnNotify(int epoch, int fromWorker)
+        public void OnNotify(DataTimestamp dataTimestamp, int fromWorker)
         {
-            this.inputsByWorker[fromWorker].OnStreamingNotify(epoch);
+            // XXX this is not right, but no one uses this class
+            // this.inputsByWorker[fromWorker].OnStreamingNotify(dataTimestamp);
         }
 
         /// <summary>
@@ -290,8 +293,8 @@ namespace Microsoft.Research.Naiad.Input
     public class InterGraphDataSink<TRecord>
     {
         private readonly List<InterGraphDataSource<TRecord>> TargetSources;
-        private readonly Dictionary<int, List<TRecord>>[] StatesByWorker;
-        private readonly List<Pair<int, TRecord[]>>[] FrozenStates;
+        private readonly Dictionary<DataTimestamp, List<TRecord>>[] StatesByWorker;
+        private readonly List<Pair<DataTimestamp, TRecord[]>>[] FrozenStates;
         private readonly bool[] Completed;
 
         private int OutstandingRegistrations;
@@ -302,37 +305,37 @@ namespace Microsoft.Research.Naiad.Input
             lock (this)
             {
                 var dictionary = this.StatesByWorker[fromWorker];
-                if (!dictionary.ContainsKey(message.time.epoch))
-                    dictionary.Add(message.time.epoch, new List<TRecord>());
+                if (!dictionary.ContainsKey(message.time.DataTimestamp))
+                    dictionary.Add(message.time.DataTimestamp, new List<TRecord>());
 
-                var dictionaryTime = dictionary[message.time.epoch];
+                var dictionaryTime = dictionary[message.time.DataTimestamp];
 
                 for (int i = 0; i < message.length; i++)
                     dictionaryTime.Add(message.payload[i]);
             }
         }
 
-        private void OnNotify(int epoch, int fromWorker)
+        private void OnNotify(DataTimestamp dataTimestamp, int fromWorker)
         {
             lock (this)
             {
                 var array = new TRecord[] { };
 
-                if (this.StatesByWorker[fromWorker].ContainsKey(epoch))
+                if (this.StatesByWorker[fromWorker].ContainsKey(dataTimestamp))
                 {
-                    array = this.StatesByWorker[fromWorker][epoch].ToArray();
-                    this.StatesByWorker[fromWorker].Remove(epoch);
+                    array = this.StatesByWorker[fromWorker][dataTimestamp].ToArray();
+                    this.StatesByWorker[fromWorker].Remove(dataTimestamp);
                 }
 
                 foreach (var source in this.TargetSources)
                 {
-                    source.OnRecv(array, epoch, fromWorker);
-                    source.OnNotify(epoch, fromWorker);
+                    source.OnRecv(array, dataTimestamp, fromWorker);
+                    source.OnNotify(dataTimestamp, fromWorker);
                 }
 
                 // stash the data if the sink is not yet sealed, as we might need to replay it for a new source.
                 if (this.FrozenStates[fromWorker] != null)
-                    this.FrozenStates[fromWorker].Add(new Pair<int, TRecord[]>(epoch, array));
+                    this.FrozenStates[fromWorker].Add(new Pair<DataTimestamp, TRecord[]>(dataTimestamp, array));
             }
         }
 
@@ -425,13 +428,13 @@ namespace Microsoft.Research.Naiad.Input
 
             var workers = stream.Context.Context.Manager.InternalComputation.Controller.Workers.Count;
 
-            this.StatesByWorker = new Dictionary<int,List<TRecord>>[workers];
+            this.StatesByWorker = new Dictionary<DataTimestamp,List<TRecord>>[workers];
             for (int i = 0; i < this.StatesByWorker.Length; i++)
-                this.StatesByWorker[i] = new Dictionary<int, List<TRecord>>();
+                this.StatesByWorker[i] = new Dictionary<DataTimestamp, List<TRecord>>();
 
-            this.FrozenStates = new List<Pair<int,TRecord[]>>[workers];
+            this.FrozenStates = new List<Pair<DataTimestamp, TRecord[]>>[workers];
             for (int i = 0; i < this.FrozenStates.Length; i++)
-                this.FrozenStates[i] = new List<Pair<int, TRecord[]>>();
+                this.FrozenStates[i] = new List<Pair<DataTimestamp, TRecord[]>>();
 
             this.Completed = new bool[workers];
             for (int i = 0; i < this.Completed.Length; i++)
@@ -440,13 +443,13 @@ namespace Microsoft.Research.Naiad.Input
             var placement = stream.StageOutput.ForStage.Placement;
 
             stream.Subscribe((message, workerId) => { this.OnRecv(message, workerId); }, 
-                             (epoch, workerId) => { this.OnNotify(epoch.epoch, workerId); }, 
+                             (epoch, workerId) => { this.OnNotify(epoch.DataTimestamp, workerId); }, 
                              workerId => this.OnCompleted(workerId));
         }
     }
 
     #endregion
-
+#endif
 
     /// <summary>
     /// DataSource supporting manual epoch-at-a-time data introduction.
@@ -464,7 +467,7 @@ namespace Microsoft.Research.Naiad.Input
         {
             if (this.inputsByWorker == null)
                 throw new InvalidOperationException("Cannot ingest data before the source has been connected.");
-
+            Console.WriteLine("OnNext {0}", String.Join(";", batch));
             var array = batch == null ? new TRecord[] { } : batch.ToArray();
             lock (this)
             {
@@ -480,6 +483,7 @@ namespace Microsoft.Research.Naiad.Input
                     this.inputsByWorker[i].OnStreamingRecv(chunk, this.currentEpoch);
                     this.inputsByWorker[i].OnStreamingNotify(this.currentEpoch);
                 }
+                Console.WriteLine("OnNextFinished");
                 ++this.currentEpoch;
             }
         }
@@ -509,6 +513,7 @@ namespace Microsoft.Research.Naiad.Input
         {
             if (this.inputsByWorker == null)
                 throw new InvalidOperationException("Cannot ingest data before the source has been connected.");
+            Console.WriteLine("OnCompleted");
 
             var array = batch == null ? new TRecord[] { } : batch.ToArray();
             lock (this)

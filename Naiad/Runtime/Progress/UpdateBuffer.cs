@@ -80,7 +80,7 @@ namespace Microsoft.Research.Naiad.Runtime.Progress
                 {
                     if (pair.Value != 0)
                     {
-                        pair.Key.Populate(ref version); // do the type conversion to pointstamp
+                        pair.Key.Populate(ref version.DataTimestamp, ref version.StructTimestamp); // do the type conversion to pointstamp
                         producer.UpdateRecordCounts(version, pair.Value);
                     }
                 }
@@ -96,8 +96,9 @@ namespace Microsoft.Research.Naiad.Runtime.Progress
             Updates = new Dictionary<T, Int64>();
             producer = p;
 
-            var temp = new Pointstamp(0, new int[] { });
-            version = new Pointstamp(name, new int[default(T).Populate(ref temp)]);
+            version = new Pointstamp(name,
+                new KeyValuePair<int, int>[default(T).DataConcurrency],
+                new int[default(T).StructuralDepth]);
         }
     }
 

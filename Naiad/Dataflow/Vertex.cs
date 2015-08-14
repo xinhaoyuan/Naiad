@@ -223,7 +223,7 @@ namespace Microsoft.Research.Naiad.Dataflow
             this.Stage = stage;
             this.Scheduler = this.Stage.InternalComputation.Controller.Workers[this.Stage.Placement[this.VertexId].ThreadId];
 
-            this.MyName = String.Format("{0}.[{1}]", stage.ToString().Remove(stage.ToString().Length - 1), this.VertexId);
+            this.MyName = String.Format("{0}.[{1}]", stage.ToString(), this.VertexId);
             this.OnFlushActions = new List<Action>();
         }
     }
@@ -271,6 +271,7 @@ namespace Microsoft.Research.Naiad.Dataflow
         /// <param name="time">The time.</param>
         public void NotifyAt(TTime time)
         {
+            Logging.Debug("{0} NotifyAt {1}", this, time);
             this.NotifyAt(time, time);
         }
 
@@ -310,7 +311,7 @@ namespace Microsoft.Research.Naiad.Dataflow
                 Console.Error.WriteLine("Scheduling {0} at {1} but already shut down", this, workItem);
             else
             {
-                var time = default(TTime).InitializeFrom(workItem.Requirement, workItem.Requirement.Timestamp.Length);
+                var time = default(TTime).InitializeFrom(workItem.Requirement.DataTimestamp, workItem.Requirement.StructTimestamp);
 
                 OutstandingResumes.Remove(time);
 
@@ -357,7 +358,7 @@ namespace Microsoft.Research.Naiad.Dataflow
             {
                 Pointstamp pointstamp = reader.Read<Pointstamp>(this.SerializationFormat.GetSerializer<Pointstamp>());
 
-                var time = default(TTime).InitializeFrom(pointstamp, pointstamp.Timestamp.Length);
+                var time = default(TTime).InitializeFrom(pointstamp.DataTimestamp, pointstamp.StructTimestamp);
 
                 this.Scheduler.EnqueueNotify(this, time, time, false);    // could be set to true if we are sure this executes under the worker
             }

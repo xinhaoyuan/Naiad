@@ -25,6 +25,7 @@ using System.Text;
 using Microsoft.Research.Naiad.Dataflow.Channels;
 using Microsoft.Research.Naiad.Serialization;
 using Microsoft.Research.Naiad.Scheduling;
+using Microsoft.Research.Naiad.Diagnostics;
 
 namespace Microsoft.Research.Naiad.Runtime.Progress
 {
@@ -198,11 +199,13 @@ namespace Microsoft.Research.Naiad.Runtime.Progress
             if (changes)
                 UpdateAntichain();
 
+            Logging.Debug("After add {0}", String.Join(";", elements));
             return changes;
         }
 
         internal bool Remove(Pointstamp element)
         {
+            Logging.Debug("Before remove {0}", String.Join(";", elements));
             int position = elements.Count;
             for (int i = 0; i < elements.Count; i++)
             {

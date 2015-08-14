@@ -144,9 +144,11 @@ namespace Microsoft.Research.Naiad.Dataflow.Iteration
 
         public override void OnReceive(Message<R, IterationIn<T>> message)
         {
-            if (message.time.iteration < this.MaxIterations)
+            if (message.time.StructTimestamp[message.time.StructTimestamp.Length - 1] < this.MaxIterations)
             {
-                var output = this.Output.GetBufferForTime(new IterationIn<T>(message.time.outerTime, message.time.iteration + 1));
+                var output = this.Output.GetBufferForTime(new IterationIn<T>(
+                    message.time.DataTimestamp,
+                    message.time.StructTimestamp.WithIterationDelta(1)));
                 for (int i = 0; i < message.length; i++)
                     output.Send(message.payload[i]);
             }
@@ -177,9 +179,12 @@ namespace Microsoft.Research.Naiad.Dataflow.Iteration
 
         public void OnReceive(Message<R, IterationIn<T>> message)
         {
-            if (message.time.iteration >= releaseAfter)
+            if (message.time.StructTimestamp[message.time.StructTimestamp.Length - 1] >= releaseAfter)
             {
-                var output = this.outputs.GetBufferForTime(message.time.outerTime);
+                var output = this.outputs.GetBufferForTime(
+                    default(T).InitializeFrom(
+                    message.time.DataTimestamp,
+                    message.time.StructTimestamp.RemoveIteration()));
                 for (int i = 0; i < message.length; i++)
                     output.Send(message.payload[i]);
             }
@@ -218,7 +223,7 @@ namespace Microsoft.Research.Naiad.Dataflow.Iteration
             for (int i = 0; i < message.length; i++)
             {
                 stripped[i].First = message.payload[i];
-                stripped[i].Second = message.time.outerTime;
+                stripped[i].Second = message.time.GetOuterTime();
             }
 
             Context.Reporting.ForwardLog(stripped);
@@ -229,7 +234,7 @@ namespace Microsoft.Research.Naiad.Dataflow.Iteration
             for (int i = 0; i < message.length; ++i)
             {
                 ReportingRecord<Int64> r = message.payload[i].Second;
-                Context.Reporting.LogAggregate(message.payload[i].First, r.type, r.payload, r.count, message.time.outerTime);
+                Context.Reporting.LogAggregate(message.payload[i].First, r.type, r.payload, r.count, message.time.GetOuterTime());
             }
         }
 
@@ -238,7 +243,7 @@ namespace Microsoft.Research.Naiad.Dataflow.Iteration
             for (int i = 0; i < message.length; ++i)
             {
                 ReportingRecord<double> r = message.payload[i].Second;
-                Context.Reporting.LogAggregate(message.payload[i].First, r.type, r.payload, r.count, message.time.outerTime);
+                Context.Reporting.LogAggregate(message.payload[i].First, r.type, r.payload, r.count, message.time.GetOuterTime());
             }
         }
 
