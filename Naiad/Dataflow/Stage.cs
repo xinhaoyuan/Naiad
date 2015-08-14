@@ -228,7 +228,7 @@ namespace Microsoft.Research.Naiad.Dataflow
 
         internal override Pointstamp DefaultVersion
         {
-            get { return default(TTime).ToPointstamp(this.StageId); }
+            get { var ps = new Pointstamp(default(TTime).DataConcurrency, default(TTime).StructuralDepth); ps.Location = StageId; return ps; }
         }
 
         internal Stage(Placement placement, TimeContext<TTime> c, OperatorType opType, string name)

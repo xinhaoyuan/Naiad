@@ -214,6 +214,7 @@ namespace Microsoft.Research.Naiad.Dataflow
         /// <param name="message">The message.</param>
         public void Send(Message<TRecord, TTime> message)
         {
+            Console.WriteLine("!!!!!! Send at {0}", message.time);
             this.MustFlushChannels = true;
             for (int i = 0; i < this.sendChannels.Length; i++)
                 this.sendChannels[i].Send(message);
@@ -323,6 +324,7 @@ namespace Microsoft.Research.Naiad.Dataflow
 
                 this.Buffer = new Message<TRecord, TTime>();
                 this.Buffer.Allocate(AllocationReason.VertexOutputBuffer);
+                Console.WriteLine("this.Time = {0}", Time);
                 this.Buffer.time = this.Time;
 
                 parent.Send(temp);

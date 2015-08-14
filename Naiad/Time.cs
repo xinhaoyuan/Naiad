@@ -148,7 +148,7 @@ namespace Microsoft.Research.Naiad
                     ++j;
                 // Key mismatch
                 if (j == other.Length || items[i].Key < other.items[j].Key)
-                    return false;
+                return false;
                 // Key match
                 else if (items[i].Value > other.items[j].Value)
                     return false;
@@ -177,7 +177,7 @@ namespace Microsoft.Research.Naiad
             }
             DataTimestamp ret = new DataTimestamp(dict.Count);
             int i = 0;
-            foreach (var kv in dict)
+            foreach (var kv in dict.OrderBy(kv => kv.Key))
             {
                 ret.items[i] = kv;
                 ++i;

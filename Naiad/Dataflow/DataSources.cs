@@ -467,7 +467,6 @@ namespace Microsoft.Research.Naiad.Input
         {
             if (this.inputsByWorker == null)
                 throw new InvalidOperationException("Cannot ingest data before the source has been connected.");
-            Console.WriteLine("OnNext {0}", String.Join(";", batch));
             var array = batch == null ? new TRecord[] { } : batch.ToArray();
             lock (this)
             {
@@ -483,7 +482,6 @@ namespace Microsoft.Research.Naiad.Input
                     this.inputsByWorker[i].OnStreamingRecv(chunk, this.currentEpoch);
                     this.inputsByWorker[i].OnStreamingNotify(this.currentEpoch);
                 }
-                Console.WriteLine("OnNextFinished");
                 ++this.currentEpoch;
             }
         }
@@ -513,7 +511,6 @@ namespace Microsoft.Research.Naiad.Input
         {
             if (this.inputsByWorker == null)
                 throw new InvalidOperationException("Cannot ingest data before the source has been connected.");
-            Console.WriteLine("OnCompleted");
 
             var array = batch == null ? new TRecord[] { } : batch.ToArray();
             lock (this)

@@ -24,6 +24,7 @@ using System.Linq;
 using System.Text;
 using Microsoft.Research.Naiad.Runtime.Controlling;
 using Microsoft.Research.Naiad.DataStructures;
+using Microsoft.Research.Naiad.Diagnostics;
 
 namespace Microsoft.Research.Naiad.Runtime.Progress
 {
@@ -53,7 +54,7 @@ namespace Microsoft.Research.Naiad.Runtime.Progress
             else
             {
                 var increment = depth < 0;
-                depth = Math.Abs(depth);
+                depth = Math.Abs(depth) - 1;
 
                 for (int i = 0; i < depth; i++)
                 {
@@ -193,14 +194,14 @@ namespace Microsoft.Research.Naiad.Runtime.Progress
 
                     for (int j = 0; j < newVersion.StructTimestamp.Length; j++)
                     {
-                        if (j < Math.Abs(depths))
+                        if (j < Math.Abs(depths) - 1)
                             newVersion.StructTimestamp[j] = time.StructTimestamp[j];
                         else
                             newVersion.StructTimestamp[j] = 0;
                     }
 
                     if (depths < 0)
-                        newVersion.StructTimestamp[Math.Abs(depths) - 1] = newVersion.StructTimestamp[Math.Abs(depths) - 1] + 1;
+                        newVersion.StructTimestamp[Math.Abs(depths) - 2] = newVersion.StructTimestamp[Math.Abs(depths) - 2] + 1;
 
                     yield return newVersion;
                 }
@@ -237,19 +238,21 @@ namespace Microsoft.Research.Naiad.Runtime.Progress
                     // for each element of the reachable set
                     if (reachabilityResults[j] != null)
                     {
+                        depth = 1;
                         for (int k = 0; k < reachabilityResults[j].Count; k++)
                         {
                             for (int l = 0; l < reachabilityResults[j][k].StructTimestamp.Length && reachabilityResults[j][k].StructTimestamp[l] >= magicNumber; l++)
                             {
-                                if (l + 1 > depth || l + 1 == depth && increment)
+                                if (l + 2 > depth || l + 2 == depth && increment)
                                 {
-                                    depth = l + 1;
+                                    depth = l + 2;
                                     increment = (reachabilityResults[j][k].StructTimestamp[l] > magicNumber);
                                 }
                             }
                         }
+                        
                     }
-
+                    
                     reachable.Add(increment ? -depth : depth);
                 }
 
@@ -388,7 +391,19 @@ namespace Microsoft.Research.Naiad.Runtime.Progress
                                 // If the target is an egress stage, we must strip off the last coordinate.
                                 if (this.Graph[target].Egress)
                                 {
-                                    localtime.StructTimestamp[this.Graph[target].Depth - 1] = 0;
+                                    StructuralTimestamp nst = new StructuralTimestamp(localtime.StructTimestamp.Length - 1);
+                                    for (int x = 0; x < this.Graph[target].Depth - 1; ++ x)
+                                        nst[x] = localtime.StructTimestamp[x];
+                                    localtime.StructTimestamp = nst;
+                                }
+
+                                if (this.Graph[target].Ingress)
+                                {
+                                    StructuralTimestamp nst = new StructuralTimestamp(localtime.StructTimestamp.Length + 1);
+                                    for (int x = 0; x < this.Graph[target].Depth - 1; ++ x)
+                                        nst[x] = localtime.StructTimestamp[x];
+                                    nst[this.Graph[target].Depth - 1] = 0;
+                                    localtime.StructTimestamp = nst;
                                 }
 
 #if false
@@ -401,6 +416,12 @@ namespace Microsoft.Research.Naiad.Runtime.Progress
                                 if (localtime.Timestamp.Length != this.Graph[target].Depth)
                                     throw new Exception("Something is horribly wrong in Reachability");
 #endif
+
+                                if (localtime.StructTimestamp.Length != this.Graph[target].Depth)
+                                {
+                                    Logging.Error("length - {0} : {1}", localtime.StructTimestamp.Length, this.Graph[target].Depth);
+                                    throw new Exception("Something is horribly wrong in Reachability");
+                                }
 
                                 // If the computed minimal time for the downstream collection becomes a member of its antichain, we have updated it
                                 // (and must search forward from that collection).

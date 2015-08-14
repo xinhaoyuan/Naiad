@@ -172,7 +172,6 @@ namespace Microsoft.Research.Naiad.Runtime.Progress
         internal bool Add(Pointstamp element)
         {
             var newPrecedents = 0;
-
             for (int i = 0; i < elements.Count; i++)
             {
                 if (this.Reachability.CouldResultIn(element, elements[i]))
@@ -199,13 +198,11 @@ namespace Microsoft.Research.Naiad.Runtime.Progress
             if (changes)
                 UpdateAntichain();
 
-            Logging.Debug("After add {0}", String.Join(";", elements));
             return changes;
         }
 
         internal bool Remove(Pointstamp element)
         {
-            Logging.Debug("Before remove {0}", String.Join(";", elements));
             int position = elements.Count;
             for (int i = 0; i < elements.Count; i++)
             {

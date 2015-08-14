@@ -164,7 +164,7 @@ namespace Microsoft.Research.Naiad.Dataflow
                 // if the last signal, clean up a bit
                 if (this.Countdowns[time.DataTimestamp].CurrentCount == 0)
                 {
-                    this.CompleteThrough = time.DataTimestamp.Meet(CompleteThrough); // bump completethrough int
+                    this.CompleteThrough = time.DataTimestamp.Join(CompleteThrough); // bump completethrough int
                     this.Countdowns.Remove(time.DataTimestamp); // remove countdown object
                 }
             }
@@ -261,10 +261,14 @@ namespace Microsoft.Research.Naiad.Dataflow
             base.OnShutdown();
         }
 
-        public override void OnReceive(Message<R, Epoch> record)
+        public override void OnReceive(Message<R, Epoch> message)
         {
-            this.OnRecv(record, this.Scheduler.Index);
-            this.NotifyAt(record.time);
+            this.OnRecv(message, this.Scheduler.Index);
+            if (!message.time.DataTimestamp.CouldResultIn(completeThrough))
+            {
+                completeThrough = completeThrough.Join(message.time.DataTimestamp);
+                this.NotifyAt(new Epoch(completeThrough));
+            }
         }
 
         /// <summary>
@@ -273,30 +277,15 @@ namespace Microsoft.Research.Naiad.Dataflow
         /// <param name="time"></param>
         public override void OnNotify(Epoch time)
         {
-            if (time.DataTimestamp.CouldResultIn(completeThrough))
-            {
-                Logging.Progress("???");
-                return;
-            }
-
-            // test to see if inputs supplied data for this epoch, or terminated instead
-            List<KeyValuePair<int, int>> maxEpochList = new List<KeyValuePair<int, int>>();
-            foreach (var input in this.Parent.SourceInputs.OrderByDescending(i => i.InputId))
-                maxEpochList.Add(new KeyValuePair<int, int>(input.InputId, input.MaximumValidEpoch));
-            var maxEpoch = new DataTimestamp(maxEpochList.ToArray());
-            var validEpoch = time.DataTimestamp.CouldResultIn(maxEpoch);
+            var validEpoch = time.DataTimestamp.CouldResultIn(
+                new DataTimestamp(this.Parent.SourceInputs
+                    .OrderBy(x => x.InputId)
+                    .Select(x => new KeyValuePair<int, int>(x.InputId, x.MaximumValidEpoch)).ToArray()));
             
             if (validEpoch)
                 this.OnNotifyAction(time, this.Scheduler.Index);
 
             this.Parent.Signal(time);
-            
-            if (!this.Parent.Disposed && validEpoch)
-            {
-                // we actually want to be notified for <anytime could result from [time]>.
-                completeThrough = completeThrough.Meet(time.DataTimestamp);
-                this.NotifyAt(new Epoch(completeThrough));
-            }
         }
 
         public SubscribeStreamingVertex(int index, Stage<Epoch> stage, Subscription<R> parent, Action<Message<R, Epoch>, int> onrecv, Action<Epoch, int> onnotify, Action<int> oncomplete)
@@ -307,7 +296,9 @@ namespace Microsoft.Research.Naiad.Dataflow
             this.OnRecv = onrecv;
             this.OnNotifyAction = onnotify;
             this.OnCompleted = oncomplete;
-            this.completeThrough = new DataTimestamp(0);
+            this.completeThrough = new DataTimestamp(parent.SourceInputs.Length);
+            for (int i = 0; i < this.completeThrough.Length; ++i)
+                completeThrough[i] = new KeyValuePair<int, int>(parent.SourceInputs[i].InputId, 0);
             this.NotifyAt(new Epoch(completeThrough));
         }
     }
@@ -328,14 +319,12 @@ namespace Microsoft.Research.Naiad.Dataflow
         /// <param name="message">The message.</param>
         public override void OnReceive(Message<R, Epoch> message)
         {
-            Logging.Debug("get message {0} at {1}", message.payload, message.time);
             this.Input.OnReceive(message, new ReturnAddress());
-            Logging.Debug("got message {0} at {1}", message.payload, message.time);
-            //if (!message.time.DataTimestamp.CouldResultIn(completeThrough))
-            //{
-            //    completeThrough = completeThrough.Meet(message.time.DataTimestamp);
-            //    this.NotifyAt(new Epoch(completeThrough.Meet(message.time.DataTimestamp)));
-            //}
+            if (!message.time.DataTimestamp.CouldResultIn(completeThrough))
+            {
+                completeThrough = completeThrough.Join(message.time.DataTimestamp);
+                this.NotifyAt(new Epoch(completeThrough));
+            }
         }
 
         /// <summary>
@@ -344,23 +333,17 @@ namespace Microsoft.Research.Naiad.Dataflow
         /// <param name="time"></param>
         public override void OnNotify(Epoch time)
         {
-            List<KeyValuePair<int, int>> maxEpochList = new List<KeyValuePair<int, int>>();
-            foreach (var input in this.Parent.SourceInputs.OrderByDescending(i => i.InputId))
-                maxEpochList.Add(new KeyValuePair<int, int>(input.InputId, input.MaximumValidEpoch));
-            Logging.Debug("?????? {0} {1}", this.Parent.SourceInputs.Length, String.Join(";", maxEpochList));
-            var maxEpoch = new DataTimestamp(maxEpochList.ToArray());
-            var validEpoch = time.DataTimestamp.CouldResultIn(maxEpoch);
+            var validEpoch = time.DataTimestamp.CouldResultIn(
+                new DataTimestamp(this.Parent.SourceInputs
+                    .OrderBy(x => x.InputId)
+                    .Select(x => new KeyValuePair<int, int>(x.InputId, x.MaximumValidEpoch)).ToArray()));
+            //Console.WriteLine("OnNotify {0}, {1} => {2}", time, 
+            //    String.Join(":", this.Parent.SourceInputs.Select(x => Tuple.Create(x.InputId, x.MaximumValidEpoch))),
+            //    validEpoch);
 
             if (validEpoch)
-            {
-                Logging.Debug("valid epoch {0}, maxEpoch = {1}", time.DataTimestamp, maxEpoch);
                 Action(this.VertexId, time, Input.GetRecordsAt(time));
-            }
-            else
-            {
-                Logging.Debug("invalid epoch {0}, maxEpoch = {1}", time.DataTimestamp, maxEpoch);
-            }
-            
+
             this.Parent.Signal(time);
         }
 
@@ -370,8 +353,10 @@ namespace Microsoft.Research.Naiad.Dataflow
             this.Parent = parent;
             this.Action = action;
             this.Input = new VertexInputBuffer<R, Epoch>(this);
-            this.completeThrough = new DataTimestamp(0);
-            // this.NotifyAt(new Epoch(completeThrough));
+            this.completeThrough = new DataTimestamp(parent.SourceInputs.Length);
+            for (int i = 0; i < this.completeThrough.Length; ++i)
+                completeThrough[i] = new KeyValuePair<int, int>(parent.SourceInputs[i].InputId, 0);
+            this.NotifyAt(new Epoch(completeThrough));
         }
     }
 }

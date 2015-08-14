@@ -313,7 +313,7 @@ namespace Microsoft.Research.Naiad.Dataflow
             lock (this)     // this is probably already under a lock, but just to be safe...
             {
                 this.inputQueue.Enqueue(new Instruction(batch, false));
-                scheduler.EnqueueNotify(this, new Epoch(new KeyValuePair<int, int>(VertexId, nextAvailableEpoch++)), false);
+                scheduler.EnqueueNotify(this, new Epoch(new KeyValuePair<int, int>(Stage.StageId, nextAvailableEpoch++)), false);
             }
         }
 
@@ -322,7 +322,7 @@ namespace Microsoft.Research.Naiad.Dataflow
             lock (this)
             {
                 this.inputQueue.Enqueue(new Instruction(null, true));
-                scheduler.EnqueueNotify(this, new Epoch(new KeyValuePair<int, int>(VertexId, nextAvailableEpoch++)), false);
+                scheduler.EnqueueNotify(this, new Epoch(new KeyValuePair<int, int>(Stage.StageId, nextAvailableEpoch++)), false);
                 nextAvailableEpoch++;
             }
         }
@@ -332,7 +332,7 @@ namespace Microsoft.Research.Naiad.Dataflow
             lock (this)     // this is probably already under a lock, but just to be safe...
             {
                 this.inputQueue.Enqueue(new Instruction(batch, true));
-                scheduler.EnqueueNotify(this, new Epoch(new KeyValuePair<int, int>(VertexId, nextAvailableEpoch++)), false);
+                scheduler.EnqueueNotify(this, new Epoch(new KeyValuePair<int, int>(Stage.StageId, nextAvailableEpoch++)), false);
             }
         }
 
@@ -467,7 +467,7 @@ namespace Microsoft.Research.Naiad.Dataflow
                     {
                         this.scheduler.State(this.Stage.InternalComputation).Producer.UpdateRecordCounts(
                             new Runtime.Progress.Pointstamp(this.Stage.StageId, 
-                                new KeyValuePair<int, int>[] { new KeyValuePair<int, int>(VertexId, this.currentVertexHold) },
+                                new KeyValuePair<int, int>[] { new KeyValuePair<int, int>(Stage.StageId, this.currentVertexHold) },
                                 new int[] { }), -1);
                         this.isCompleted = true;
                     }
@@ -490,10 +490,11 @@ namespace Microsoft.Research.Naiad.Dataflow
                     {
                         this.scheduler.State(this.Stage.InternalComputation).Producer.UpdateRecordCounts(
                             new Runtime.Progress.Pointstamp(this.Stage.StageId, 
-                                new KeyValuePair<int, int>[] { new KeyValuePair<int, int>(VertexId, nextInstruction.Epoch + 1) },
+                                new KeyValuePair<int, int>[] { new KeyValuePair<int, int>(Stage.StageId, nextInstruction.Epoch + 1) },
                                 new int[] { }), +1);
-                        this.scheduler.State(this.Stage.InternalComputation).Producer.UpdateRecordCounts(new Runtime.Progress.Pointstamp(this.Stage.StageId,
-                                new KeyValuePair<int, int>[] { new KeyValuePair<int, int>(VertexId, this.currentVertexHold) },
+                        this.scheduler.State(this.Stage.InternalComputation).Producer.UpdateRecordCounts(
+                            new Runtime.Progress.Pointstamp(this.Stage.StageId,
+                                new KeyValuePair<int, int>[] { new KeyValuePair<int, int>(Stage.StageId, this.currentVertexHold) },
                                 new int[] { }), -1);
                         this.currentVertexHold = nextInstruction.Epoch + 1;
                     }
@@ -515,7 +516,7 @@ namespace Microsoft.Research.Naiad.Dataflow
 
                     if (nextInstruction.Epoch >= this.currentVertexHold)
                     {
-                        var sendTime = new Epoch(new KeyValuePair<int, int>(VertexId, nextInstruction.Epoch));
+                        var sendTime = new Epoch(new KeyValuePair<int, int>(Stage.StageId, nextInstruction.Epoch));
                         var output = this.output.GetBufferForTime(sendTime);
                         for (int i = 0; i < nextInstruction.Payload.Length; ++i)
                         {
@@ -536,9 +537,7 @@ namespace Microsoft.Research.Naiad.Dataflow
             lock (this)     // this is probably already under a lock, but just to be safe...
             {
                 this.inputQueue.Enqueue(new Instruction(epoch, batch));
-                Logging.Debug("OnStreamingRecv {{");
-                scheduler.EnqueueNotify(this, new Epoch(new KeyValuePair<int, int>(VertexId, this.currentVertexHold)), false);
-                Logging.Debug("OnStreamingRecv }}");
+                scheduler.EnqueueNotify(this, new Epoch(new KeyValuePair<int, int>(Stage.StageId, this.currentVertexHold)), false);
             }
         }
 
@@ -547,9 +546,7 @@ namespace Microsoft.Research.Naiad.Dataflow
             lock (this)
             {
                 this.inputQueue.Enqueue(new Instruction(epoch, null));
-                Logging.Debug("OnStreamingNotify {{");
-                scheduler.EnqueueNotify(this, new Epoch(new KeyValuePair<int, int>(VertexId, this.currentVertexHold)), false);
-                Logging.Debug("OnStreamingNotify }}");
+                scheduler.EnqueueNotify(this, new Epoch(new KeyValuePair<int, int>(Stage.StageId, this.currentVertexHold)), false);
             }
         }
 

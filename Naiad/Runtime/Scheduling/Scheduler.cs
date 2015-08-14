@@ -230,7 +230,6 @@ namespace Microsoft.Research.Naiad.Scheduling
         public void EnqueueNotify<T>(Dataflow.Vertex op, T requirement, T capability, bool local)
             where T : Time<T>
         {
-            Logging.Debug("enqueue {0} at {1}", op, requirement);
             var req = requirement.ToPointstamp(op.Stage.StageId);
             var cap = capability.ToPointstamp(op.Stage.StageId);
 

@@ -50,6 +50,9 @@ namespace Microsoft.Research.Naiad.Util
         {
             get
             {
+                if (index >= Length)
+                    throw new IndexOutOfRangeException();
+
                 switch (index)
                 {
                     case 0: return a;
@@ -61,6 +64,9 @@ namespace Microsoft.Research.Naiad.Util
             }
             set
             {
+                if (index >= Length)
+                    throw new IndexOutOfRangeException();
+
                 switch (index)
                 {
                     case 0: a = value; break;
@@ -92,11 +98,18 @@ namespace Microsoft.Research.Naiad.Util
         /// <returns>A string representation of this array.</returns>
         public override string ToString()
         {
-            var result = new StringBuilder().Append(this[0]);
-            for (int i = 1; i < this.Length; i++)
-                result.AppendFormat(", {0}", this[i]);
-
-            return result.ToString();
+            if (Length == 0)
+            {
+                return "[]";
+            }
+            else
+            {
+                var result = new StringBuilder().AppendFormat("[{0}", this[0]);
+                for (int i = 1; i < this.Length; i++)
+                    result.AppendFormat(", {0}", this[i]);
+                result.Append("]");
+                return result.ToString();
+            }
         }
         /// <summary>
         /// Convert this into Enumerable
@@ -110,7 +123,7 @@ namespace Microsoft.Research.Naiad.Util
             if (Length > 3) yield return d;
             for (int i = 4; i < Length; ++i)
             {
-                yield return spillover[i];
+                yield return spillover[i - 4];
             }
         }
     }
