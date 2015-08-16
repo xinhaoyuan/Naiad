@@ -1438,8 +1438,8 @@ namespace Microsoft.Research.Naiad.Frameworks.GraphLINQ
                 : base(index, stage)
             {
                 this.RenameOutput = new VertexOutputBuffer<NodeWithValue<TIdentifier>, IterationIn<Epoch>>(this);
-
-                this.NotifyAt(new IterationIn<Epoch>(new Epoch(Int32.MaxValue), Int32.MaxValue));
+                // This could be wrong.
+                this.NotifyAt(new IterationIn<Epoch>(new Epoch(new DataTimestampItem[] {}), Int32.MaxValue));
                 this.Entrancy = 5;
             }
         }

@@ -73,11 +73,10 @@ namespace Microsoft.Research.Naiad.Examples
             examples.Add("dd-wordcount", new DifferentialDataflow.WordCount());
             examples.Add("dd-searchindex", new DifferentialDataflow.SearchIndex());
             examples.Add("dd-graphcoloring", new DifferentialDataflow.GraphColoring());
-            
+#endif
             // some GraphLINQ examples
             examples.Add("graphlinq-reachability", new Examples.GraphLINQ.Reachability());
             examples.Add("graphlinq-pagerank", new Examples.GraphLINQ.PageRank());
-#endif
 
             // determine which exmample was asked for
             if (args.Length == 0 || !examples.ContainsKey(args[0].ToLower()))

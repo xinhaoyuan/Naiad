@@ -72,6 +72,8 @@
     <Compile Include="..\SharedAssemblyInfo.cs">
       <Link>Properties\SharedAssemblyInfo.cs</Link>
     </Compile>
+    <Compile Include="GraphLINQ\PageRank.cs" />
+    <Compile Include="GraphLINQ\Reachability.cs" />
     <Compile Include="Naiad\ConnectedComponents.cs" />
     <Compile Include="Naiad\KeyValueLookup.cs" />
     <Compile Include="Naiad\Latency.cs" />
@@ -84,6 +86,10 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Frameworks\GraphLINQ\GraphLINQ.csproj">
+      <Project>{bdbeaca4-1235-4fdc-bbf5-9f9b7ab553ad}</Project>
+      <Name>GraphLINQ</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Frameworks\Lindi\Lindi.csproj">
       <Project>{bdc6546c-7ba0-472b-b260-0d596b6152e4}</Project>
       <Name>Lindi</Name>
