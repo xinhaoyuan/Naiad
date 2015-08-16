@@ -141,7 +141,7 @@ namespace Microsoft.Research.Naiad.Dataflow.Channels
             public void Send(Message<Update, Empty> records)
             {
                 if (debug)
-                    for (int i = 0; i < records.length; i++)
+                    for (int i = 0; i < records.payload.Length; i++)
                         Console.Error.WriteLine("  IncastChannel Send {0}->{1}  {2} {3}", vertexID, 0, records.payload[i].Delta, records.payload[i].Pointstamp);
 
                 if (this.localMailbox == null)

@@ -35,7 +35,7 @@ namespace Microsoft.Research.Naiad
     /// </summary>
     public struct StructuralTimestamp
     {
-        private Util.SArray<int> items;
+        public Util.SArray<int> items;
         public StructuralTimestamp(int size)
         {
             items = new Util.SArray<int>(size);
@@ -128,29 +128,45 @@ namespace Microsoft.Research.Naiad
             }
         }
     }
+    // Define this instead of KeyValuePair for Naiad serializer to properly serialize time structure
+    public struct DataTimestampItem
+    {
+        public int Source;
+        public int Epoch;
+        public DataTimestampItem(int source, int epoch)
+        {
+            Source = source;
+            Epoch = epoch;
+        }
+        public DataTimestampItem(KeyValuePair<int, int> kv)
+        {
+            Source = kv.Key;
+            Epoch = kv.Value;
+        }
+    }
     /// <summary>
     /// Timestamp that represents external concurrency of data.
     /// It contains a vector clock with a partial order.
     /// </summary>
     public struct DataTimestamp
     {
-        private Util.SArray<KeyValuePair<int, int>> items;
+        public Util.SArray<DataTimestampItem> items;
         public DataTimestamp(int size)
         {
-            items = new Util.SArray<KeyValuePair<int, int>>(size);
+            items = new Util.SArray<DataTimestampItem>(size);
         }
         public bool CouldResultIn(DataTimestamp other)
         {
             int i, j = 0;
             for (i = 0; i < Length; ++i)
             {
-                while (j < other.Length && items[i].Key > other.items[j].Key)
+                while (j < other.Length && items[i].Source > other.items[j].Source)
                     ++j;
                 // Key mismatch
-                if (j == other.Length || items[i].Key < other.items[j].Key)
+                if (j == other.Length || items[i].Source < other.items[j].Source)
                 return false;
                 // Key match
-                else if (items[i].Value > other.items[j].Value)
+                else if (items[i].Epoch > other.items[j].Epoch)
                     return false;
             }
             return true;
@@ -160,26 +176,26 @@ namespace Microsoft.Research.Naiad
             if (items.Length != other.items.Length) return false;
             for (int i = 0; i < items.Length; ++i)
             {
-                if (items[i].Key != other.items[i].Key) return false;
-                if (items[i].Value != other.items[i].Value) return false;
+                if (items[i].Source != other.items[i].Source) return false;
+                if (items[i].Epoch != other.items[i].Epoch) return false;
             }
             return true;
         }
         public DataTimestamp Join(DataTimestamp other)
         {
-            Dictionary<int, int> dict = Enumerate().ToDictionary(kv => kv.Key, kv => kv.Value);
+            Dictionary<int, int> dict = Enumerate().ToDictionary(kv => kv.Source, kv => kv.Epoch);
             foreach (var ts in other.Enumerate())
             {
-                if ((!dict.ContainsKey(ts.Key) || dict[ts.Key] < ts.Value))
+                if ((!dict.ContainsKey(ts.Source) || dict[ts.Source] < ts.Epoch))
                 {
-                    dict[ts.Key] = ts.Value;
+                    dict[ts.Source] = ts.Epoch;
                 }
             }
             DataTimestamp ret = new DataTimestamp(dict.Count);
             int i = 0;
             foreach (var kv in dict.OrderBy(kv => kv.Key))
             {
-                ret.items[i] = kv;
+                ret.items[i] = new DataTimestampItem(kv);
                 ++i;
             }
             return ret;
@@ -187,12 +203,12 @@ namespace Microsoft.Research.Naiad
         public DataTimestamp Meet(DataTimestamp other)
         {
             int i = 0, j = 0;
-            List<KeyValuePair<int, int>> list = new List<KeyValuePair<int, int>>();
+            List<DataTimestampItem> list = new List<DataTimestampItem>();
             while (i < Length && j < other.Length)
             {
-                if (items[i].Key == other.items[j].Key)
+                if (items[i].Source == other.items[j].Source)
                 {
-                    if (items[i].Value < other.items[j].Value)
+                    if (items[i].Epoch < other.items[j].Epoch)
                     {
                         list.Add(items[i]);
                     }
@@ -202,7 +218,7 @@ namespace Microsoft.Research.Naiad
                     }
                     ++i; ++j;
                 }
-                else if (items[i].Key < other.items[j].Key)
+                else if (items[i].Source < other.items[j].Source)
                 {
                     ++i;
                 }
@@ -231,24 +247,24 @@ namespace Microsoft.Research.Naiad
                 result ^= ele.GetHashCode();
             return result;
         }
-        public KeyValuePair<int, int> this[int index]
+        public DataTimestampItem this[int index]
         {
             get { return items[index]; }
             set { items[index] = value; }
         }
         public int Length { get { return items.Length; } }
-        public IEnumerable<KeyValuePair<int, int>> Enumerate()
+        public IEnumerable<DataTimestampItem> Enumerate()
         {
             return items.Enumerate();
         }
         public DataTimestamp(int source, int epoch)
         {
-            items = new Util.SArray<KeyValuePair<int, int>>(1);
-            items[0] = new KeyValuePair<int,int>(source, epoch);
+            items = new Util.SArray<DataTimestampItem>(1);
+            items[0] = new DataTimestampItem(source, epoch);
         }
-        public DataTimestamp(KeyValuePair<int, int>[] kvItems)
+        public DataTimestamp(DataTimestampItem[] kvItems)
         {
-            items = new Util.SArray<KeyValuePair<int, int>>(kvItems.Length);
+            items = new Util.SArray<DataTimestampItem>(kvItems.Length);
             for (int i = 0; i < kvItems.Length; ++i)
             {
                 items[i] = kvItems[i];
@@ -497,14 +513,14 @@ namespace Microsoft.Research.Naiad.Dataflow
             return this;
         }
 
-        public Epoch(KeyValuePair<int, int>[] dataTimestamp)
+        public Epoch(DataTimestampItem[] dataTimestamp)
         {
             this.DataTimestamp = new DataTimestamp(dataTimestamp.Length);
             for (int i = 0; i < dataTimestamp.Length; ++i)
                 this.DataTimestamp[i] = dataTimestamp[i];
         }
 
-        public Epoch(KeyValuePair<int, int> singleSourceTimestamp)
+        public Epoch(DataTimestampItem singleSourceTimestamp)
         {
             this.DataTimestamp = new DataTimestamp(1);
             this.DataTimestamp[0] = singleSourceTimestamp;

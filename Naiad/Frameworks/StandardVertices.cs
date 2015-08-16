@@ -227,7 +227,7 @@ namespace Microsoft.Research.Naiad.Dataflow
             while (this.TimesToFlush.Count > 0)
             { 
                 var time = this.TimesToFlush.Dequeue();
-                
+
                 var buffer = this.Buffers[time];
                 this.Buffers.Remove(time);
 

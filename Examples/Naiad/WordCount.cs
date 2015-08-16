@@ -115,7 +115,6 @@ namespace Microsoft.Research.Naiad.Examples.WordCount
                     // with our dataflow graph defined, we can start soliciting strings from the user.
                     Console.WriteLine("Start entering lines of text. An empty line will exit the program.");
                     Console.WriteLine("Naiad will display counts (and changes in counts) of words you type.");
-                    Logging.Progress("Test logging");
 
                     // read lines of input and hand them to the input, until an empty line appears.
                     for (var line = Console.ReadLine(); line.Length > 0; line = Console.ReadLine())

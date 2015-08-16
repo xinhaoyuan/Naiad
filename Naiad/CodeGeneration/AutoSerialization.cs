@@ -1506,7 +1506,7 @@ namespace Microsoft.Research.Naiad.Serialization
 
                 foreach (var field in t.GetFields().Where(f => !f.IsStatic).OrderBy(f => f.Name))
                 {
-                    foreach (CodeStatement stmt in this.GenerateDeserializeInstructions(currentPosition, bytesRemaining, new CodeFieldReferenceExpression(toDeserialize, field.Name), field.FieldType))
+                   foreach (CodeStatement stmt in this.GenerateDeserializeInstructions(currentPosition, bytesRemaining, new CodeFieldReferenceExpression(toDeserialize, field.Name), field.FieldType))
                         yield return stmt;
                 }
 
@@ -1605,7 +1605,7 @@ namespace Microsoft.Research.Naiad.Serialization
                 this.AddReferencedAssembly(t.Assembly);
                 if (this.minorVersion >= 1 && this.format.HasCustomSerialization(t))
                     return GenerateCustomSerializeInstructions(currentPosition, bytesRemaining, toSerialize, t, failureReturnExpression);
-                else if (this.minorVersion >= 1 && t == typeof (string))
+                else if (this.minorVersion >= 1 && t == typeof(string))
                     return GenerateStringSerializeInstructions(currentPosition, bytesRemaining, toSerialize, failureReturnExpression);
                 else if (this.minorVersion >= 1 && IsTupleType(t))
                     return GenerateTupleSerializeInstructions(currentPosition, bytesRemaining, toSerialize, t, failureReturnExpression);

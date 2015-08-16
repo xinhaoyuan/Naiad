@@ -107,7 +107,7 @@ namespace Microsoft.Research.Naiad.Runtime.Progress
         /// </summary>
         /// <param name="location">dataflow graph location</param>
         /// <param name="indices">timestamp indices</param>
-        internal Pointstamp(int location, KeyValuePair<int, int>[] dataTimestamp, int[] structTimestamp)
+        internal Pointstamp(int location, DataTimestampItem[] dataTimestamp, int[] structTimestamp)
         {
             Location = location;
             DataTimestamp = new DataTimestamp(dataTimestamp.Length);

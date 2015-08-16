@@ -224,7 +224,7 @@ namespace Microsoft.Research.Naiad.Runtime.Progress
 
                 var versionList = new Pointstamp[] {
                     new Pointstamp(i,
-                        new KeyValuePair<int, int>[] { }, 
+                        new DataTimestampItem[] { }, 
                         Enumerable.Repeat(magicNumber, this.Graph[i].Depth).ToArray()) };
 
                 var reachabilityResults = this.DetermineReachabilityList(versionList);

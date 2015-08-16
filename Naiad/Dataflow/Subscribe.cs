@@ -280,7 +280,7 @@ namespace Microsoft.Research.Naiad.Dataflow
             var validEpoch = time.DataTimestamp.CouldResultIn(
                 new DataTimestamp(this.Parent.SourceInputs
                     .OrderBy(x => x.InputId)
-                    .Select(x => new KeyValuePair<int, int>(x.InputId, x.MaximumValidEpoch)).ToArray()));
+                    .Select(x => new DataTimestampItem(x.InputId, x.MaximumValidEpoch)).ToArray()));
             
             if (validEpoch)
                 this.OnNotifyAction(time, this.Scheduler.Index);
@@ -298,7 +298,7 @@ namespace Microsoft.Research.Naiad.Dataflow
             this.OnCompleted = oncomplete;
             this.completeThrough = new DataTimestamp(parent.SourceInputs.Length);
             for (int i = 0; i < this.completeThrough.Length; ++i)
-                completeThrough[i] = new KeyValuePair<int, int>(parent.SourceInputs[i].InputId, 0);
+                completeThrough[i] = new DataTimestampItem(parent.SourceInputs[i].InputId, 0);
             this.NotifyAt(new Epoch(completeThrough));
         }
     }
@@ -336,7 +336,7 @@ namespace Microsoft.Research.Naiad.Dataflow
             var validEpoch = time.DataTimestamp.CouldResultIn(
                 new DataTimestamp(this.Parent.SourceInputs
                     .OrderBy(x => x.InputId)
-                    .Select(x => new KeyValuePair<int, int>(x.InputId, x.MaximumValidEpoch)).ToArray()));
+                    .Select(x => new DataTimestampItem(x.InputId, x.MaximumValidEpoch)).ToArray()));
             //Console.WriteLine("OnNotify {0}, {1} => {2}", time, 
             //    String.Join(":", this.Parent.SourceInputs.Select(x => Tuple.Create(x.InputId, x.MaximumValidEpoch))),
             //    validEpoch);
@@ -355,7 +355,7 @@ namespace Microsoft.Research.Naiad.Dataflow
             this.Input = new VertexInputBuffer<R, Epoch>(this);
             this.completeThrough = new DataTimestamp(parent.SourceInputs.Length);
             for (int i = 0; i < this.completeThrough.Length; ++i)
-                completeThrough[i] = new KeyValuePair<int, int>(parent.SourceInputs[i].InputId, 0);
+                completeThrough[i] = new DataTimestampItem(parent.SourceInputs[i].InputId, 0);
             this.NotifyAt(new Epoch(completeThrough));
         }
     }
